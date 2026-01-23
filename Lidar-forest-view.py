@@ -274,6 +274,10 @@ class LidarWindow(QMainWindow):
         picked_point = picked_point + self.translation
         self.tree_selected.emit(picked_point)
 
+    def closeEvent(self, event):
+        self.plotter.close()
+        super().closeEvent(event)
+
 if __name__ == '__main__':
     app = QApplication([])
     manager = AppManager()
