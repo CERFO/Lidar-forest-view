@@ -330,13 +330,16 @@ class CustomMapWidget(QGraphicsView):
             factor = 1.0 / factor
         self.scale(factor, factor)
 
-    def find_point(self, position):
+    def find_point(self, position): # TODO essayer de trouver une autre solution : pas très propre
         x = position[0]
         y = -position[1]
-        point = QPoint(x, y)
-        tree = self.itemAt(point)
-        print(tree.pos())
-        # self.new_tree_attributes.emit(tree.tree_data)
+        items = self.scene.items(QPointF(x, y))
+        for item in items:
+            if isinstance(item, TreePoint):
+                if item.pos() == QPointF(x, y):
+                    tree = item
+                    self.new_tree_attributes.emit(tree.tree_data)
+                    break
 
 class ProprietyWidget(QWidget):
     '''
@@ -541,6 +544,11 @@ class TreePoint(QGraphicsEllipseItem):
 
         self.tree_data = tree_data  # Store tree data, could be a dictionary or any structure
         self.parent = parent  # Référence au map_widget
+
+        label = QGraphicsTextItem(tree_data['No_tige'], self)
+        label.setFlag(QGraphicsTextItem.ItemIgnoresTransformations)
+        label.adjustSize()
+        label.setPos(0, -20)
 
     def mousePressEvent(self, event): # *** lien direct : pas top *** TODO : trouver une alternative plus souple
         # Modifie les données dans la fenêtre de propriétés

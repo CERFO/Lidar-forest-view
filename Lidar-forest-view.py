@@ -37,7 +37,6 @@ class AppManager(QObject):
         # self.photo_window.map_widget.create_pointer()
 
         # Connection des signaux
-        # self.photo_window.camera_direction_updated.connect(self.lidar_window.update_camera_direction)
         self.photo_window.gl_widget.new_camera_direction.connect(self.lidar_window.update_camera_direction)
         self.photo_window.gl_widget.new_pointer_direction.connect(self.photo_window.map_widget.pointer.rotate_pointer)
         self.photo_window.map_widget.new_camera_position.connect(self.lidar_window.update_camera_position)
