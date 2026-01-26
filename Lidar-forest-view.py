@@ -172,7 +172,7 @@ class LidarWindow(QMainWindow):
         self.plotter.camera.view_angle = 90
         self.view_depth = 15
 
-        self.plotter.enable_point_picking(callback=self.point_picked)
+        self.plotter.enable_point_picking(callback=self.point_picked, color='yellow', point_size=30)
         self.plotter.enable_eye_dome_lighting()
 
     def load_point_cloud(self, point_cloud_path, actor_name):

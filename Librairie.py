@@ -256,6 +256,7 @@ class CustomMapWidget(QGraphicsView):
     new_pointer_position = pyqtSignal(object)
     new_panorama = pyqtSignal(str, float, float, float)
     new_tree_attributes = pyqtSignal(object)
+    last_selection = []
     '''
     Carte de points d'intérêt
 
@@ -267,10 +268,11 @@ class CustomMapWidget(QGraphicsView):
     def __init__(self, photo_coordinates, tree_coordinates = None):
         super().__init__()
         self.scene = QGraphicsScene()
+        self.scene.selectionChanged.connect(self.on_selection_change)
         self.setScene(self.scene)
         self.setMinimumSize(100, 100)
         self.setBackgroundBrush(QColor(200, 200, 200))  # Set a light gray background
-
+        
         # conversion des coordonées de la scène et ajout des points
         self.plot_photo_coordinates(photo_coordinates)
 
@@ -339,12 +341,24 @@ class CustomMapWidget(QGraphicsView):
         self.create_pointer()
         self.new_pointer_position.connect(self.pointer.setPos)
 
+        self.last_selection = []
+        self.scene.clearSelection()
+
     def wheelEvent(self, event):
         #Gère le zoom de la carte
         factor = 1.2
         if event.angleDelta().y() < 0:
             factor = 1.0 / factor
         self.scale(factor, factor)
+
+    def mousePressEvent(self, event):
+        self.last_selection = self.scene.selectedItems()
+        return super().mousePressEvent(event)
+    
+    def on_selection_change(self):
+        if not self.scene.selectedItems() and self.last_selection:
+            for item in self.last_selection:
+                item.setSelected(True)
 
     def find_point(self, position): # TODO essayer de trouver une autre solution : pas très propre
         x = position[0]
@@ -354,6 +368,9 @@ class CustomMapWidget(QGraphicsView):
             if isinstance(item, TreePoint):
                 if item.pos() == QPointF(x, y):
                     tree = item
+                    self.last_selection = []
+                    self.scene.clearSelection()
+                    item.setSelected(True)
                     self.new_tree_attributes.emit(tree.tree_data)
                     break
 
@@ -563,7 +580,7 @@ class TreePoint(QGraphicsEllipseItem):
         self.setBrush(Qt.green)
         self.setPos(x, y)
         self.setCursor(Qt.ArrowCursor)
-        self.setFlag(QGraphicsItem.ItemIgnoresTransformations)  # Ignore transformations to keep the point size constant
+        self.setFlags(QGraphicsItem.ItemIgnoresTransformations | QGraphicsItem.ItemIsSelectable)  # Ignore transformations to keep the point size constant
 
         self.tree_data = tree_data  # Store tree data, could be a dictionary or any structure
         self.parent = parent  # Référence au map_widget
@@ -579,6 +596,14 @@ class TreePoint(QGraphicsEllipseItem):
             self.parent.new_tree_attributes.emit(self.tree_data)
         
         super().mousePressEvent(event)
+
+    def paint(self, painter, option, widget = ...):
+        if self.isSelected():
+            self.setBrush(Qt.yellow)
+        else:
+            self.setBrush(Qt.green)
+        option.state &= ~QStyle.State_Selected
+        return super().paint(painter, option, widget)
 
 class Pointer(QGraphicsPolygonItem, QObject):
     '''
