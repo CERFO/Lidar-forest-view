@@ -14,10 +14,8 @@ class AppManager(QObject):
         try:
             self.photo_info = CSV_to_dict(os.path.join(self.form.paths['project_dir'], 'photo_info.csv'), ',')
         except FileNotFoundError:
-            QMessageBox.critical(self, 'Erreur', 'Le fichier photo_info.csv est introuvable dans le répertoire du projet.')
-            with self.shared.lock:
-                self.shared.running = False
-            sys.exit()
+            QMessageBox.critical(self, 'Avertissement', 'Le fichier photo_info.csv est introuvable dans le répertoire du projet. Les données de photos ne seont pas affichées')
+            self.photo_info = None
 
         # Arbres
         try:
@@ -37,6 +35,7 @@ class AppManager(QObject):
         # self.photo_window.map_widget.create_pointer()
 
         # Connection des signaux
+        self.photo_window.change_button.clicked.connect(self.change_site)
         self.photo_window.gl_widget.new_camera_direction.connect(self.lidar_window.update_camera_direction)
         self.photo_window.gl_widget.new_pointer_direction.connect(self.photo_window.map_widget.pointer.rotate_pointer)
         self.photo_window.map_widget.new_camera_position.connect(self.lidar_window.update_camera_position)
@@ -69,47 +68,23 @@ class AppManager(QObject):
         # Ouvre le formulaire pour sélectionner un nouveau répertoire de projet
         self.form.exec()
 
-        # Réinitialise la carte
-        self.map_widget.scene.clear()
+        # Collecter les nouvelles informations
         try:
             self.photo_info = CSV_to_dict(os.path.join(self.form.paths['project_dir'], 'photo_info.csv'), ',')
-            self.map_widget.plot_photo_coordinates(self.photo_info)
         except FileNotFoundError:
-            QMessageBox.critical(self, 'Erreur', 'Le fichier photo_info.csv est introuvable dans le répertoire du projet.')
-            with self.shared.lock:
-                self.shared.running = False
-            sys.exit()
-        
+            QMessageBox.critical(self, 'Avertissement', 'Le fichier photo_info.csv est introuvable dans le répertoire du projet. Les données de photos ne seont pas affichées')
+            self.photo_info = None
+
         try:
             self.tree_info = CSV_to_dict(os.path.join(self.form.paths['project_dir'], 'tree_info.csv'), ',')
-            self.map_widget.plot_tree_coordinates([])  # TODO: charger les données d'arbre si disponibles
         except FileNotFoundError:
             QMessageBox.warning(self, 'Avertissement', 'Le fichier tree_info.csv est introuvable dans le répertoire du projet. Les données d\'arbre ne seront pas affichées.')
             self.tree_info = None
 
-        self.map_widget.fitInView(self.map_widget.scene.itemsBoundingRect(), Qt.KeepAspectRatio)
-        self.map_widget.scene.setSceneRect(self.map_widget.scene.itemsBoundingRect())
+        self.photo_window.change_site(self.photo_info, self.tree_info, os.path.join(self.form.paths['project_dir'], 'panoramas'))
+        self.lidar_window.change_site(os.path.join(self.form.paths['project_dir'], 'cloud.laz'), self.tree_info)
 
-        # Réinitialise le pointeur
-        self.map_widget.pointer = None
-
-        # Réinitialise les propriétés
-        self.propriety_widget.load_data({})
-
-        # Réinitialise la vue photo
-        self.gl_widget.yaw = 0
-        self.gl_widget.pitch = 0
-        self.gl_widget.load_image(None)
-
-        # Met à jour le chemin du nuage de points dans SharedData
-        with self.shared.lock:
-            try:
-                self.shared.cloud_path = os.path.join(self.form.paths['project_dir'], 'cloud.laz')
-                self.shared.cloud_updated = True
-            except FileNotFoundError:
-                QMessageBox.warning(self, 'Avertissement', 'Le fichier cloud.laz est introuvable dans le répertoire du projet. Le nuage de points ne sera pas affiché.')
-                self.shared.cloud_path = None
-                self.shared.cloud_updated = False
+        print('Nouveau site chargé')
 
 class PhotoWindow(QMainWindow):
     def __init__(self, photo_info, tree_info, photo_dir):
@@ -124,10 +99,7 @@ class PhotoWindow(QMainWindow):
         self.gl_widget = GLWidget(self, photo_dir)
         self.map_widget = CustomMapWidget(photo_info, tree_info)
         self.propriety_widget = ProprietyWidget(list(k for k in tree_info[0].keys() if k not in {'x', 'y', 'z'}))
-        
-
         self.change_button = QPushButton('Changer de site **disfonctionnel**')
-        # self.change_button.clicked.connect(self.change_site)
 
         # Création de la disposition principale
         propriety_box = QGroupBox('Propriétés')
@@ -150,53 +122,28 @@ class PhotoWindow(QMainWindow):
         central_widget.setLayout(main_layout)
         self.setCentralWidget(central_widget)
 
-    def change_site(self): #TODO changer la méthode
+    def change_site(self, photo_info, tree_info, photo_dir): #TODO changer la méthode
         '''Change le site en demandant à l'utilisateur de sélectionner un nouveau répertoire de projet'''
 
-        # Ouvre le formulaire pour sélectionner un nouveau répertoire de projet
-        self.form.exec()
-
         # Réinitialise la carte
-        self.map_widget.scene.clear()
-        try:
-            self.photo_info = CSV_to_dict(os.path.join(self.form.paths['project_dir'], 'photo_info.csv'), ',')
-            self.map_widget.plot_photo_coordinates(self.photo_info)
-        except FileNotFoundError:
-            QMessageBox.critical(self, 'Erreur', 'Le fichier photo_info.csv est introuvable dans le répertoire du projet.')
-            with self.shared.lock:
-                self.shared.running = False
-            sys.exit()
-        
-        try:
-            self.tree_info = CSV_to_dict(os.path.join(self.form.paths['project_dir'], 'tree_info.csv'), ',')
-            self.map_widget.plot_tree_coordinates([])  # TODO: charger les données d'arbre si disponibles
-        except FileNotFoundError:
-            QMessageBox.warning(self, 'Avertissement', 'Le fichier tree_info.csv est introuvable dans le répertoire du projet. Les données d\'arbre ne seront pas affichées.')
-            self.tree_info = None
+        self.gl_widget.new_pointer_direction.disconnect()
+        self.map_widget.reset()
+        self.gl_widget.new_pointer_direction.connect(self.map_widget.pointer.rotate_pointer)
+
+        self.map_widget.plot_photo_coordinates(photo_info)
+        self.map_widget.plot_tree_coordinates(tree_info)
+        self.map_widget.pointer.setPos(float(photo_info[0]['x']), -float(photo_info[0]['y']))
 
         self.map_widget.fitInView(self.map_widget.scene.itemsBoundingRect(), Qt.KeepAspectRatio)
-        self.map_widget.scene.setSceneRect(self.map_widget.scene.itemsBoundingRect())
-
-        # Réinitialise le pointeur
-        self.map_widget.pointer = None
+        self.map_widget.scene.setSceneRect(self.map_widget.scene.itemsBoundingRect().marginsAdded(QMarginsF(10,10,10,10)))
 
         # Réinitialise les propriétés
-        self.propriety_widget.load_data({})
+        self.propriety_widget.reset()
+        self.propriety_widget.set_fields(list(k for k in tree_info[0].keys() if k not in {'x', 'y', 'z'}))
 
         # Réinitialise la vue photo
-        self.gl_widget.yaw = 0
-        self.gl_widget.pitch = 0
-        self.gl_widget.load_image(None)
-
-        # Met à jour le chemin du nuage de points dans SharedData
-        with self.shared.lock:
-            try:
-                self.shared.cloud_path = os.path.join(self.form.paths['project_dir'], 'cloud.laz')
-                self.shared.cloud_updated = True
-            except FileNotFoundError:
-                QMessageBox.warning(self, 'Avertissement', 'Le fichier cloud.laz est introuvable dans le répertoire du projet. Le nuage de points ne sera pas affiché.')
-                self.shared.cloud_path = None
-                self.shared.cloud_updated = False
+        self.gl_widget.reset()
+        self.gl_widget.photo_dir = photo_dir
 
     ## désuet ## pourrait servir à tout fermer d'un coup via un signal
     # def closeEvent(self, event):
@@ -223,6 +170,7 @@ class LidarWindow(QMainWindow):
 
         self.plotter.set_viewup([0, 0, 1])
         self.plotter.camera.view_angle = 90
+        self.view_depth = 15
 
         self.plotter.enable_point_picking(callback=self.point_picked)
         self.plotter.enable_eye_dome_lighting()
@@ -262,16 +210,34 @@ class LidarWindow(QMainWindow):
         self.camera_parameters[1] -= self.camera_parameters[0] - centered_position
         self.camera_parameters[0] = centered_position
         self.plotter.camera_position = self.camera_parameters
-        self.plotter.camera.clipping_range = (0.5, 15)
+        self.plotter.camera.clipping_range = (0.5, self.view_depth)
 
     def update_camera_direction(self, camera_direction):
+        if camera_direction[2] == 1:
+            self.camera_parameters[2] = [0, 1, 0]
+        else:
+            self.camera_parameters[2] = [0, 0, 1]
+
         self.camera_parameters[1] = self.camera_parameters[0] + camera_direction
         self.plotter.camera_position = self.camera_parameters
-        self.plotter.camera.clipping_range = (0.5, 15)
+        self.plotter.camera.clipping_range = (0.5, self.view_depth/(1.1-abs(camera_direction[2])**3))
 
     def point_picked(self, picked_point):
         picked_point = picked_point + self.translation
         self.tree_selected.emit(picked_point)
+
+    def change_site(self, cloud_path, tree_info):
+        self.reset()
+        self.load_point_cloud(cloud_path, 'main_cloud')
+        self.add_trees(tree_info)
+
+    def reset(self):
+        self.plotter.clear_actors()
+        self.camera_parameters = [[0, 0, 0],
+                                  [1, 0, 0],
+                                  [0, 0, 1]]
+        self.plotter.camera_position = self.camera_parameters
+        self.translation = None
 
     def closeEvent(self, event):
         self.plotter.close()

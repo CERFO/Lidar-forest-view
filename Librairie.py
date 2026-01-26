@@ -201,6 +201,15 @@ class GLWidget(QGLWidget):
         glMatrixMode(GL_PROJECTION)
         glLoadIdentity()
         gluPerspective(self.fov, self.width()/self.height(), 0.1, 1000)
+
+    def reset(self):
+        self.yaw = 0
+        self.pitch = 0
+        self.image_yaw = 0
+        self.image_pitch = 0
+        self.image_roll = 0
+        self.load_image(None)
+        self.photo_dir = None
         
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:
@@ -273,7 +282,7 @@ class CustomMapWidget(QGraphicsView):
         self.setRenderHint(QPainter.Antialiasing)
         # Ajustement de la vue aux points ajoutés
         self.fitInView(self.scene.itemsBoundingRect(), Qt.KeepAspectRatio)
-        self.scene.setSceneRect(self.scene.itemsBoundingRect())
+        self.scene.setSceneRect(self.scene.itemsBoundingRect().marginsAdded(QMarginsF(10,10,10,10)))
         self.create_pointer()
     
     def plot_photo_coordinates(self, photo_coordinates):
@@ -300,7 +309,7 @@ class CustomMapWidget(QGraphicsView):
 
     def plot_tree_coordinates(self, tree_coordinates): # TODO
         '''Affiche les points d'arbres sur la carte.'
-        Args: tree_coordinates (list): Liste de dictionnaires contenant les informations des arbres.''' # TODO : sélectionner la structure selon les données reçues
+        Args: tree_coordinates (list): Liste de dictionnaires contenant les informations des arbres.'''
         
         if not tree_coordinates:
             return
@@ -322,6 +331,13 @@ class CustomMapWidget(QGraphicsView):
             self.pointer = Pointer()
             self.scene.addItem(self.pointer)
             self.new_pointer_position.connect(self.pointer.setPos)
+
+    def reset(self):
+        self.new_pointer_position.disconnect()
+        self.scene.clear()
+        self.pointer = None
+        self.create_pointer()
+        self.new_pointer_position.connect(self.pointer.setPos)
 
     def wheelEvent(self, event):
         #Gère le zoom de la carte
@@ -357,15 +373,18 @@ class ProprietyWidget(QWidget):
         # font = QFont()
         # font.setPointSize(9)
 
+        self.set_fields(fields)
+
+        self.setLayout(self.inner_layout)
+
+    def set_fields(self, fields):
         for field in fields:
             label = QLabel(f'{field} :')
             # label.setFont(font)
             attribute = QLabel('')
             # attribute.setFont(font)
             self.inner_layout.addRow(label, attribute)
-
-        self.setLayout(self.inner_layout)
-        
+           
     def load_data(self, data): # TODO: Modifier selon la structure choisie des données des arbres
         # Charge les données dans le widget de propriétés
         for i in range(self.inner_layout.rowCount()):
@@ -374,6 +393,10 @@ class ProprietyWidget(QWidget):
                 self.inner_layout.itemAt(i, QFormLayout.FieldRole).widget().setText(str(data[label]))
             else:
                 self.inner_layout.itemAt(i, QFormLayout.FieldRole).widget().setText('ND')
+
+    def reset(self):
+        for i in range(self.inner_layout.rowCount()):
+            self.inner_layout.removeRow(0)
 
 class Open3DViewer():
     """
@@ -507,7 +530,7 @@ class PhotoPoint(QGraphicsEllipseItem):
         self.roll = roll
         self.parent = parent  # Référence au map_widget pour emetre les signaux
 
-    def mousePressEvent(self, event): # *** lien direct : pas top *** TODO : trouver une alternative plus souple
+    def mousePressEvent(self, event):
         # Change l'image affichée dans la fenêtre principale
         if self.parent and hasattr(self.parent, 'new_panorama'):
             self.parent.new_panorama.emit(self.path, self.yaw, self.pitch, self.roll)
@@ -550,14 +573,14 @@ class TreePoint(QGraphicsEllipseItem):
         label.adjustSize()
         label.setPos(0, -20)
 
-    def mousePressEvent(self, event): # *** lien direct : pas top *** TODO : trouver une alternative plus souple
+    def mousePressEvent(self, event):
         # Modifie les données dans la fenêtre de propriétés
         if self.parent and hasattr(self.parent, 'new_tree_attributes'):
             self.parent.new_tree_attributes.emit(self.tree_data)
         
         super().mousePressEvent(event)
 
-class Pointer(QGraphicsPolygonItem):
+class Pointer(QGraphicsPolygonItem, QObject):
     '''
     Pointeur pour indiquer la position et la direction de la caméra dans la scène.
     '''
@@ -567,7 +590,7 @@ class Pointer(QGraphicsPolygonItem):
         self.setPos(0, 0)
         self.setTransformOriginPoint(0, 0)
         self.setFlag(QGraphicsItem.ItemIgnoresTransformations)  # Ignore transformations to keep the pointer size constant
-        # self.setZValue(1)
+        self.setZValue(1)
 
     def rotate_pointer(self, angle):
         self.setRotation(angle)
