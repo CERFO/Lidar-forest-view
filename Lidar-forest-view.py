@@ -99,7 +99,7 @@ class PhotoWindow(QMainWindow):
         self.gl_widget = GLWidget(self, photo_dir)
         self.map_widget = CustomMapWidget(photo_info, tree_info)
         self.propriety_widget = ProprietyWidget(list(k for k in tree_info[0].keys() if k not in {'x', 'y', 'z'}))
-        self.change_button = QPushButton('Changer de site **disfonctionnel**')
+        self.change_button = QPushButton('Changer de site')
 
         # Création de la disposition principale
         propriety_box = QGroupBox('Propriétés')
