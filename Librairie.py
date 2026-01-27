@@ -335,6 +335,7 @@ class CustomMapWidget(QGraphicsView):
             self.new_pointer_position.connect(self.pointer.setPos)
 
     def reset(self):
+        self.last_selection = []
         self.new_pointer_position.disconnect()
         self.scene.clear()
         self.pointer = None

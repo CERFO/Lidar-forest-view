@@ -41,7 +41,7 @@ class AppManager(QObject):
         self.photo_window.map_widget.new_camera_position.connect(self.lidar_window.update_camera_position)
         self.photo_window.map_widget.new_panorama.connect(self.photo_window.gl_widget.load_image)
         self.photo_window.map_widget.new_tree_attributes.connect(self.photo_window.propriety_widget.load_data)
-        self.lidar_window.tree_selected.connect(self.photo_window.map_widget.find_point)
+        self.lidar_window.lidar_tree_selected.connect(self.photo_window.map_widget.find_point)
         
         self.lidar_window.load_point_cloud(os.path.join(self.form.paths['project_dir'], 'cloud.laz'), 'main_cloud')
         self.lidar_window.add_trees(self.tree_info)
@@ -157,7 +157,7 @@ class LidarWindow(QMainWindow):
                          [1, 0, 0],
                          [0, 0, 1]]
     translation = None # Translation appliquée au nuage de points
-    tree_selected = pyqtSignal(object)
+    lidar_tree_selected = pyqtSignal(object)
 
     def __init__(self):
         super().__init__()
@@ -224,7 +224,7 @@ class LidarWindow(QMainWindow):
 
     def point_picked(self, picked_point):
         picked_point = picked_point + self.translation
-        self.tree_selected.emit(picked_point)
+        self.lidar_tree_selected.emit(picked_point)
 
     def change_site(self, cloud_path, tree_info):
         self.reset()
