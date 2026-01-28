@@ -44,7 +44,8 @@ class AppManager(QObject):
         self.lidar_window.lidar_tree_selected.connect(self.photo_window.map_widget.find_point)
         
         self.lidar_window.load_point_cloud(os.path.join(self.form.paths['project_dir'], 'cloud.laz'), 'main_cloud')
-        self.lidar_window.add_trees(self.tree_info)
+        if self.tree_info:
+            self.lidar_window.add_trees(self.tree_info)
         self.lidar_window.load_point_cloud(os.path.join(self.form.paths['project_dir'], 'aero_cloud.laz'), 'aeroporté')
 
         ############# test pour les arbres géoréférencés
@@ -98,7 +99,10 @@ class PhotoWindow(QMainWindow):
         # Création des widgets principaux
         self.gl_widget = GLWidget(self, photo_dir)
         self.map_widget = CustomMapWidget(photo_info, tree_info)
-        self.propriety_widget = ProprietyWidget(list(k for k in tree_info[0].keys() if k not in {'x', 'y', 'z'}))
+        if tree_info is None :
+            self.propriety_widget = ProprietyWidget([])
+        else:
+            self.propriety_widget = ProprietyWidget(list(k for k in tree_info[0].keys() if k not in {'x', 'y', 'z'}))
         self.change_button = QPushButton('Changer de site')
 
         # Création de la disposition principale
