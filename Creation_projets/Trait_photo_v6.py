@@ -1,4 +1,4 @@
-from Librairie_v2 import *
+from Librairie import *
 import shutil
 
 class MainWindow(QWidget):
@@ -60,7 +60,7 @@ class MainWindow(QWidget):
                 
                 if reply == QMessageBox.No:
                     project_name, _ = QInputDialog.getText(self, 'Nom du projet', 'Entrez le nom du projet :')
-                    project_path = os.path.join(form.paths['project_out_dir'], project_name)
+                    project_path = os.path.join(base_form.paths['project_out_dir'], project_name)
                 
                 # Si l'utilisateur accepte, on supprime les fichiers existants
                 elif reply == QMessageBox.Yes:
