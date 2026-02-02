@@ -5,16 +5,14 @@ import json
 import math
 import subprocess
 from collections import defaultdict
-import laspy as lp
 import numpy as np
-import open3d as o3d
 from PIL import Image
 from OpenGL.GL import *
 from OpenGL.GLU import *
-from PyQt5.QtGui import *
-from PyQt5.QtCore import *
-from PyQt5.QtWidgets import *
-from PyQt5.QtOpenGL import QGLWidget
+from PyQt6.QtGui import *
+from PyQt6.QtCore import *
+from PyQt6.QtWidgets import *
+from PyQt6.QtOpenGLWidgets import QOpenGLWidget
 
 class DataForm(QDialog):
     '''
@@ -28,7 +26,7 @@ class DataForm(QDialog):
         super().__init__()
         self.setWindowTitle(title)
 
-        self.setWindowFlags(self.windowFlags() | Qt.WindowStaysOnTopHint | Qt.Dialog)
+        self.setWindowFlags(self.windowFlags() | Qt.WindowType.WindowStaysOnTopHint | Qt.WindowType.Dialog)
 
         self.fields = {}
         self.paths = {}
@@ -109,7 +107,7 @@ class DataForm(QDialog):
             else:
                 event.ignore()  # Prevent the dialog from closing
 
-class GLWidget(QGLWidget):
+class GLWidget(QOpenGLWidget):
     new_camera_direction = pyqtSignal(object)
     new_pointer_direction = pyqtSignal(float)
     '''
@@ -168,7 +166,7 @@ class GLWidget(QGLWidget):
         self.makeCurrent()
         glBindTexture(GL_TEXTURE_2D, self.texture)
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, self.image_width, self.image_height, 0, GL_RGB, GL_UNSIGNED_BYTE, self.image.tobytes())
-        self.doneCurrent()
+        # self.doneCurrent()
 
     def initializeGL(self):
         glEnable(GL_TEXTURE_2D)
@@ -248,7 +246,7 @@ class GLWidget(QGLWidget):
         glMatrixMode(GL_PROJECTION)
         glLoadIdentity()
         gluPerspective(self.fov, self.width()/self.height(), 0.1, 1000)
-        self.doneCurrent()
+        # self.doneCurrent()
         self.update()
 
 class CustomMapWidget(QGraphicsView):
@@ -415,109 +413,6 @@ class ProprietyWidget(QWidget):
     def reset(self):
         for i in range(self.inner_layout.rowCount()):
             self.inner_layout.removeRow(0)
-
-class Open3DViewer():
-    """
-    Visionneuse de nuages de points 3D utilisant Open3D
-    
-    Args:
-        shared (SharedData): Instance de SharedData pour partager les données entre les threads.
-    """
-    def __init__(self, shared):
-        self.app = o3d.visualization.gui.Application.instance
-        self.app.initialize()
-
-        self.window = o3d.visualization.gui.Application.instance.create_window("UdeS Forest View 3D", 800, 600, 30, 30)
-        self.scene = o3d.visualization.gui.SceneWidget()
-        self.scene.scene = o3d.visualization.rendering.Open3DScene(self.window.renderer)
-        self.window.add_child(self.scene)
-
-        # self.scene.scene.show_axes(True)
-        # self.scene.scene.show_ground_plane(True, rendering.Scene.GroundPlane(1))
-        self.scene.set_view_controls(o3d.visualization.gui.SceneWidget.Controls.FLY) # ROTATE_CAMERA est bien aussi
-
-        self.shared = shared
-        self.center = [0, 0, 0]
-        self.material = o3d.visualization.rendering.MaterialRecord()
-        self.material.shader = "depth"
-
-        # self.scene.scene.scene.add_point_light('self_light', [1, 1, 1], [0, 0, 0], 255.0, 1.0, False)
-
-        self.window.set_on_tick_event(self.on_tick)
-
-    def on_tick(self):
-        '''Gère les mises à jour de la scène'''
-        with self.shared.lock:
-            # if not self.shared.running: # Vérifie si l'application est en cours d'exécution : utile si on utilise l'index 0 dans la visionneuse
-            #     self.app.quit()
-
-            if self.shared.cloud_updated:
-                self.update_cloud(self.shared.cloud_path)
-                self.shared.cloud_updated = False
-                print("Cloud updated")
-
-            if self.shared.updated:
-                print('trying to update camera position')
-                self.update_camera_position(self.shared.camera_position, self.shared.camera_direction)
-                self.shared.updated = False
-                print("Camera position updated")
-
-    def update_cloud(self, cloud_path):
-        '''Met à jour le nuage de points du projet'''
-        try:
-            las = lp.read(cloud_path)
-            print('Loaded')
-
-            total_pts = las.header.point_count
-            decimation_factor = 3 # Facteur de décimation
-            decimated_indices = np.arange(0, total_pts, decimation_factor)
-            decimated_las = las.points[decimated_indices]
-            print('Decimated')
-
-            points = np.vstack((decimated_las.x, decimated_las.y, decimated_las.z)).transpose()
-            pcd = o3d.geometry.PointCloud()
-            pcd.points = o3d.utility.Vector3dVector(points)
-            self.center = pcd.get_center()
-            self.centered_pcd = pcd.translate(-pcd.get_center())
-            print('Centered')
-
-            if self.scene.scene.has_geometry('Point Cloud'):
-                self.scene.scene.remove_geometry('Point Cloud')
-
-            self.scene.scene.add_geometry("Point Cloud", self.centered_pcd, material=self.material)
-
-        except FileNotFoundError:
-            print(f"Le fichier n'a pas été trouvé: {cloud_path}")
-        except Exception as e:
-            print(f"Erreur lors de la mise à jour du nuage: {e}")
-
-    def update_camera_position(self, camera_position, camera_direction):
-        ''' Met à jour la position et la direction de la caméra dans la scène
-            Découpe le nuage de points en fonction de la position de la caméra
-
-        Args : camera_position (tuple): Un tuple contenant les coordonnées (x, y, z) de la position de la caméra
-                camera_direction (tuple): Un tuple contenant les angles (roll, pitch, yaw) de la direction de la caméra'''
-        
-        # Direction de vue
-        roll, pitch, yaw = [math.radians(angle) for angle in camera_direction]  # Convertit les angles en radians
-
-        # Détermine la position de la caméra (eye) et la cible (center)
-        eye = camera_position - self.center
-        center = eye + np.array([math.cos(pitch) * math.sin(yaw), math.cos(pitch) * math.cos(yaw), -math.sin(pitch)])
-
-        self.scene.look_at(center, eye, [0, 0, 1])
-
-        if self.scene.scene.has_geometry('Point Cloud'):
-            self.scene.scene.remove_geometry('Point Cloud')
-    
-        # Découpe le nuage de points autour de la position de la caméra
-        size = 15
-        bounding_box = o3d.geometry.AxisAlignedBoundingBox(min_bound=np.array([eye[0] - size, eye[1] - size, -100]), max_bound=np.array([eye[0] + size, eye[1] + size, 100]))
-        cropped_cloud = self.centered_pcd.crop(bounding_box)
-
-        self.scene.scene.add_geometry("Point Cloud", cropped_cloud, material=self.material)
-
-        # self.scene.scene.scene.update_light_position('self_light', eye) # Pour ajouter un éclairage : pas nécessaire avec la visionneuse actuelle
 
 class PhotoPoint(QGraphicsEllipseItem):
     '''
@@ -989,152 +884,3 @@ def quaternion_to_euler(qw, qx, qy, qz):
     
     # Return in the order: roll, pitch, yaw
     return (roll_deg, pitch_deg, yaw_deg)
-
-
-
-#### Désuet ####
-def export_gs_vision_to_csv(gs_vision, filename):
-    """
-    Exporte les données de vision GS vers un fichier CSV
-    
-    Args:
-        gs_vision_data (list): Liste des données de vision GS
-        filename (str): Nom du fichier CSV de sortie
-    """
-    header = ['image', 'timestamp', 'x', 'y', 'z', 'roll', 'pitch', 'yaw']
-    gs_vision_data = gs_vision['images']
-    # Préparer les données pour l'export
-    csv_data = []
-    for data in gs_vision_data:
-        row = [
-            data['imagePath'][2:],  # image
-            data['time'],       # timestamp
-            data['x'],          # x
-            data['y'],          # y
-            data['z'],          # z
-            data['roll'],       # roll
-            data['pitch'],      # pitch
-            data['heading']     # yaw
-        ]
-        csv_data.append(row)
-    
-    # Exporter vers CSV
-    writeCSV(filename, csv_data, header)
-
-class VisualizerWindow(o3d.visualization.O3DVisualizer): # Ne gère pas le changement de site, crop de près
-    def __init__(self, title, width, height, shared):
-        super().__init__(title, width, height)
-
-        self.shared = shared
-
-        while not self.shared.cloud_updated:
-            None
-
-        las = lp.read(self.shared.cloud_path)
-
-        total_pts = las.header.point_count
-        decimation_factor = 10
-        decimated_indices = np.arange(0, total_pts, decimation_factor)
-        decimated_las = las.points[decimated_indices]
-        print('Decimated')
-
-        points = np.vstack((decimated_las.x, decimated_las.y, decimated_las.z)).transpose()
-        pcd = o3d.geometry.PointCloud()
-        pcd.points = o3d.utility.Vector3dVector(points)
-        centered_pcd = pcd.translate(-pcd.get_center())
-        print('Centered')
-
-        material = o3d.visualization.rendering.MaterialRecord()
-        material.shader = "depth"
-
-        self.add_geometry("Point Cloud", centered_pcd, material=material)
-        self.reset_camera_to_default()
-
-    def on_frame(self):
-        print("Running on_frame")
-        if self.shared.cloud_updated:
-        #     self.update_cloud(self.shared.cloud_path) # TODO
-            print("Cloud updated")
-
-        # if self.shared.updated:
-        #     self.update_camera_position(self.shared.camera_position, self.shared.camera_direction)
-
-    def update_cloud(self, cloud_path):
-        las = lp.read(cloud_path)
-
-        total_pts = las.header.point_count
-        decimation_factor = 20
-        decimated_indices = np.arange(0, total_pts, decimation_factor)
-        decimated_las = las.points[decimated_indices]
-        print('decimated')
-
-        points = np.vstack((decimated_las.x, decimated_las.y, decimated_las.z)).transpose()
-        pcd = o3d.geometry.PointCloud()
-        pcd.points = o3d.utility.Vector3dVector(points)
-        centered_pcd = pcd.translate(-pcd.get_center())
-        print('centered')
-
-        material = o3d.visualization.rendering.MaterialRecord()
-        material.shader = "depth"
-
-        try:
-            self.remove_geometry('Point Cloud')
-        except Exception as e:
-            print(f"Error removing geometry: {e}")
-
-        self.add_geometry("Point Cloud", centered_pcd, material=material)
-        self.reset_camera_to_default()
-
-    def update_camera_position(self, camera_position):
-        None
-        # self.setup_camera() # TODO
-
-class YetAnotherViewer(): # Pas de crop de près et crop de loin, mais plante, gère pas le changement de site
-    def __init__(self, shared):
-        self.app = o3d.visualization.gui.Application.instance
-        self.app.initialize()
-
-        self.viewer = o3d.visualization.Visualizer()
-        self.viewer.create_window(window_name="UdeS Forest View 3D", width=1024, height=768)
-
-        self.view_control = self.viewer.get_view_control()
-        self.view_control.set_up([0, 0, 1])
-        self.view_control.set_front([0, 1, 0])
-        self.view_control.set_constant_z_near(0.2)
-        self.view_control.set_constant_z_far(15)
-
-        self.shared = shared
-        self.center = [0, 0, 0]
-        self.material = o3d.visualization.rendering.MaterialRecord()
-        self.material.shader = "depth"
-
-        while not self.shared.cloud_updated:
-            None
-
-        self.update_cloud(self.shared.cloud_path)
-
-    # def on_tick(self):
-    #     print("Running on_tick")
-
-    def update_cloud(self, cloud_path):
-        las = lp.read(cloud_path)
-
-        total_pts = las.header.point_count
-        decimation_factor = 10
-        decimated_indices = np.arange(0, total_pts, decimation_factor)
-        decimated_las = las.points[decimated_indices]
-        print('Decimated')
-
-        points = np.vstack((decimated_las.x, decimated_las.y, decimated_las.z)).transpose()
-        pcd = o3d.geometry.PointCloud()
-        pcd.points = o3d.utility.Vector3dVector(points)
-        self.center = pcd.get_center()
-        centered_pcd = pcd.translate(-pcd.get_center())
-        print('Centered')
-
-        self.viewer.clear_geometries()
-
-        self.viewer.add_geometry(centered_pcd)
-        # self.scene.reset_camera_to_default()
-
-        self.shared.cloud_updated = False  # Reset the flag after updating

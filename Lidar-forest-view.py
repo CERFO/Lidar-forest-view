@@ -1,5 +1,6 @@
 from Librairie import *
 import pyvistaqt as pvqt
+import laspy as lp
 
 class AppManager(QObject):
     def __init__(self):
