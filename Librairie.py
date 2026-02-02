@@ -13,6 +13,7 @@ from PyQt6.QtGui import *
 from PyQt6.QtCore import *
 from PyQt6.QtWidgets import *
 from PyQt6.QtOpenGLWidgets import QOpenGLWidget
+from PyQt6.QtOpenGL import QOpenGLShaderProgram, QOpenGLShader
 
 class DataForm(QDialog):
     '''
@@ -110,6 +111,7 @@ class DataForm(QDialog):
 class GLWidget(QOpenGLWidget):
     new_camera_direction = pyqtSignal(object)
     new_pointer_direction = pyqtSignal(float)
+    texture_pending = False
     '''
     Visionneuse de photos 3D (Équirectangulaire) utilisant OpenGL
 
@@ -161,44 +163,113 @@ class GLWidget(QOpenGLWidget):
                 self.update()  # Trigger repaint
                 print(f"Loaded image: {image_path}")
 
-    def update_texture(self):
+    def update_texture(self): # TODO déplacer dans paintGL et ajouter un indicateur de changement
         """Update OpenGL texture with current image"""
-        self.makeCurrent()
-        glBindTexture(GL_TEXTURE_2D, self.texture)
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, self.image_width, self.image_height, 0, GL_RGB, GL_UNSIGNED_BYTE, self.image.tobytes())
+        # self.makeCurrent()
+        # glBindTexture(GL_TEXTURE_2D, self.texture)
+        # glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, self.image_width, self.image_height, 0, GL_RGB, GL_UNSIGNED_BYTE, self.image.tobytes())
         # self.doneCurrent()
+        self.texture_pending = True
 
     def initializeGL(self):
-        glEnable(GL_TEXTURE_2D)
+        print("OpenGL version:", glGetString(GL_VERSION))
+        print("GLSL version:", glGetString(GL_SHADING_LANGUAGE_VERSION))
+
+        # === Shader ===
+        self.program = QOpenGLShaderProgram()
+        self.program.addShaderFromSourceCode(
+            QOpenGLShader.ShaderTypeBit.Vertex,
+            '''#version 450 core
+
+            layout(location = 0) in vec3 position;
+            layout(location = 1) in vec2 texcoord;
+
+            uniform mat4 MVP;
+
+            out vec2 vTex;
+
+            void main()
+            {
+                vTex = texcoord;
+                gl_Position = MVP * vec4(position, 1.0);
+            }'''
+        )
+        self.program.addShaderFromSourceCode(
+            QOpenGLShader.ShaderTypeBit.Fragment,
+            '''#version 450 core
+
+            in vec2 vTex;
+            out vec4 FragColor;
+
+            uniform sampler2D tex;
+
+            void main()
+            {
+                FragColor = texture(tex, vTex);
+            }'''
+        )
+        self.program.link()
+
+        self.mvp_loc = self.program.uniformLocation("MVP")
+
+        # === Texture ===
         self.texture = glGenTextures(1)
         glBindTexture(GL_TEXTURE_2D, self.texture)
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, self.image_width, self.image_height, 0, GL_RGB, GL_UNSIGNED_BYTE, self.image.tobytes())
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
+        glTexImage2D(
+            GL_TEXTURE_2D, 0, GL_RGB,
+            self.image_width, self.image_height,
+            0, GL_RGB, GL_UNSIGNED_BYTE,
+            self.image.tobytes()
+        )
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR)
-        self.sphere = gluNewQuadric()
-        glMatrixMode(GL_PROJECTION)
-        glLoadIdentity()
-        gluPerspective(90, self.width()/self.height(), 0.1, 1000) # Field of view au premier argument
-        glMatrixMode(GL_MODELVIEW)
-        glLoadIdentity()
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
+
+        # === Sphere geometry ===
+        self.vao, self.vertex_count = self.create_sphere(1.0, 64, 64)
+        glBindVertexArray(self.vao)
+
+        # Matrices
+        self.model = QMatrix4x4()
+        self.view = QMatrix4x4()
+        # self.view.translate(0, 0, -3)
+
+        self.projection = QMatrix4x4()
 
     def paintGL(self):
+        status = glCheckFramebufferStatus(GL_FRAMEBUFFER)
+        assert status == GL_FRAMEBUFFER_COMPLETE
+
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
-        glPushMatrix()
-        glRotatef(-self.image_roll, 0, 0, 1)
-        glRotatef(self.pitch, 1, 0, 0)
-        glRotatef(self.yaw, 0, 1, 0)
-        glRotatef(90, 1, 0, 0)
-        # glRotatef(-90, 0, 0, 1) # Pour des images gauche droite plutôt que avant-arrière
-        gluQuadricTexture(self.sphere, True)
-        gluSphere(self.sphere, 1, 100, 100)
-        glPopMatrix()
+
+        self.model.setToIdentity()
+        self.model.rotate(-self.image_roll, 0, 0, 1)
+        self.model.rotate(self.pitch, 1, 0, 0)
+        self.model.rotate(self.yaw, 0, 1, 0)
+        self.model.rotate(90, 1, 0, 0)
+
+        mvp = self.projection * self.view * self.model
+
+        self.program.bind()
+        self.program.setUniformValue(self.mvp_loc, mvp)
+
+        glBindTexture(GL_TEXTURE_2D, self.texture)
+
+        if self.texture_pending:
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, self.image_width, self.image_height, 0, GL_RGB, GL_UNSIGNED_BYTE, self.image.tobytes())
+            self.texture_pending = False
+
+        glBindVertexArray(self.vao)
+        glDrawArrays(GL_TRIANGLES, 0, self.vertex_count)
+        glBindVertexArray(0)
+
+        self.program.release()
           
     def resizeGL(self, width, height):
+        height = max(1, height)
         glViewport(0, 0, width, height)
-        glMatrixMode(GL_PROJECTION)
-        glLoadIdentity()
-        gluPerspective(self.fov, self.width()/self.height(), 0.1, 1000)
+
+        self.projection.setToIdentity()
+        self.projection.perspective(self.fov, width / height, 0.1, 1000.0)
 
     def reset(self):
         self.yaw = 0
@@ -246,8 +317,46 @@ class GLWidget(QOpenGLWidget):
         glMatrixMode(GL_PROJECTION)
         glLoadIdentity()
         gluPerspective(self.fov, self.width()/self.height(), 0.1, 1000)
-        # self.doneCurrent()
+        self.doneCurrent()
         self.update()
+
+    def create_sphere(self, radius, rings, sectors):
+        vertices = []
+
+        for r in range(rings):
+            for s in range(sectors):
+                for dr, ds in [(0,0), (1,0), (1,1), (0,0), (1,1), (0,1)]:
+                    R = (r + dr) / rings
+                    S = (s + ds) / sectors
+
+                    theta = R * math.pi
+                    phi = S * 2 * math.pi
+
+                    x = radius * math.sin(theta) * math.cos(phi)
+                    y = radius * math.cos(theta)
+                    z = radius * math.sin(theta) * math.sin(phi)
+
+                    vertices.extend([x, y, z, S, R])
+
+        data = (GLfloat * len(vertices))(*vertices)
+
+        vao = glGenVertexArrays(1)
+        vbo = glGenBuffers(1)
+
+        glBindVertexArray(vao)
+        glBindBuffer(GL_ARRAY_BUFFER, vbo)
+        glBufferData(GL_ARRAY_BUFFER, len(data) * 4, data, GL_STATIC_DRAW)
+
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * 4, ctypes.c_void_p(0))
+        glEnableVertexAttribArray(0)
+
+        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * 4, ctypes.c_void_p(12))
+        glEnableVertexAttribArray(1)
+
+        glBindVertexArray(0)
+
+        return vao, len(vertices) // 5
+
 
 class CustomMapWidget(QGraphicsView):
     new_camera_position = pyqtSignal(object)
