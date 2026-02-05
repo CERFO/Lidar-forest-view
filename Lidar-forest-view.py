@@ -1,5 +1,6 @@
 from Librairie import *
 import pyvistaqt as pvqt
+import laspy as lp
 
 class AppManager(QObject):
     def __init__(self):
@@ -248,6 +249,12 @@ class LidarWindow(QMainWindow):
         super().closeEvent(event)
 
 if __name__ == '__main__':
+
+    fmt = QSurfaceFormat()
+    fmt.setVersion(4, 5)
+    fmt.setProfile(QSurfaceFormat.OpenGLContextProfile.CoreProfile)
+    QSurfaceFormat.setDefaultFormat(fmt)
+
     app = QApplication([])
     manager = AppManager()
     app.exec()

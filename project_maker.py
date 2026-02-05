@@ -8,9 +8,9 @@ class ProjectMaker(QWidget):
         choice = QMessageBox(self)
         choice.setWindowTitle("Choix de l'action")
         choice.setText("Voulez-vous créer un nouveau projet ou ajouter des photos à un projet existant?")
-        create = choice.addButton("Créer un nouveau projet", QMessageBox.ActionRole)
-        add = choice.addButton("Ajouter des photos à un projet existant", QMessageBox.ActionRole)
-        choice.exec_()
+        create = choice.addButton("Créer un nouveau projet", QMessageBox.ButtonRole.ActionRole)
+        add = choice.addButton("Ajouter des photos à un projet existant", QMessageBox.ButtonRole.ActionRole)
+        choice.exec()
 
         if choice.clickedButton() == create:
             self.create_project()
@@ -221,34 +221,56 @@ class ScanForm(QDialog):
         super().__init__()
         self.setWindowTitle(f'Scan {no_scan} - Informations')
 
-        self.setWindowFlags(self.windowFlags() | Qt.WindowStaysOnTopHint | Qt.Dialog)
+        self.setWindowFlags(self.windowFlags() | Qt.WindowType.WindowStaysOnTopHint | Qt.WindowType.Dialog)
 
         self.memory = readJSON('memory.json') if os.path.exists('memory.json') else {}
 
         self.layout = QFormLayout()
 
         self.combo_box = QComboBox()
-        self.combo_box.insertItems(0, ['GS-vision', 'Insta 360', 'Eagle', 'Hémisphérique'])
+        self.combo_box.insertItems(0, ['Sélectionner', 'GS-vision', 'Insta 360', 'Eagle', 'Hémisphérique'])
+        self.combo_box.currentTextChanged.connect(self.on_text_change)
         self.layout.addRow('Type de données', self.combo_box)
 
         self.trajectory = BrowseLayout('Trajectoire photos', 'traj_photos_path', 'file', self.memory)
         self.layout.addRow('Trajectoire photos', self.trajectory)
+        self.layout.setRowVisible(self.trajectory, False)
+
         self.gs_vision = BrowseLayout('GS-Vision', 'gs_vision_path', 'file', self.memory)
         self.layout.addRow('GS-Vision', self.gs_vision)
+        self.layout.setRowVisible(self.gs_vision, False)
+
         self.calibration = BrowseLayout('Calibration', 'cam_cal_path', 'file', self.memory)
         self.layout.addRow('Calibration', self.calibration)
+        self.layout.setRowVisible(self.calibration, False)
+
         self.pano_photos = BrowseLayout('Photos panoramiques', 'panoramic_photos_dir', 'répertoire', self.memory)
         self.layout.addRow('Photos panoramiques', self.pano_photos)
+        self.layout.setRowVisible(self.pano_photos, False)
+
         self.fisheye_photos = BrowseLayout('Photos fisheye', 'fisheye_photos_dir', 'répertoire', self.memory)
         self.layout.addRow('Photos fisheye', self.fisheye_photos)
+        self.layout.setRowVisible(self.fisheye_photos, False)
+
         self.hugin = BrowseLayout('Racine Hugin', 'hugin_root', 'répertoire', self.memory)
         self.layout.addRow('Racine Hugin', self.hugin)
+        self.layout.setRowVisible(self.hugin, False)
 
         self.submit_button = QPushButton('Soumettre')
         self.submit_button.clicked.connect(self.submit_data)
         self.layout.addRow(self.submit_button)
 
         self.setLayout(self.layout)
+        self.adjustSize()
+
+    def on_text_change(self, new_text):
+        self.layout.setRowVisible(self.trajectory, new_text == 'Insta 360' or new_text == 'Eagle' or new_text == 'Hémisphérique')
+        self.layout.setRowVisible(self.gs_vision, new_text == 'GS-vision')
+        self.layout.setRowVisible(self.calibration, new_text == 'Hémisphérique')
+        self.layout.setRowVisible(self.pano_photos, new_text == 'GS-vision' or new_text == 'Insta 360')
+        self.layout.setRowVisible(self.fisheye_photos, new_text == 'Eagle' or new_text == 'Hémisphérique')
+        self.layout.setRowVisible(self.hugin, new_text == 'Hémisphérique')
+        self.adjustSize()
 
     def submit_data(self): # TODO ajouter une sécurité contre les formulaires incomplets
         for row in range(self.layout.rowCount()):
