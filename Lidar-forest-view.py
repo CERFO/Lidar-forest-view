@@ -183,6 +183,8 @@ class LidarWindow(QMainWindow):
 
         self.plotter.enable_point_picking(callback=self.point_picked, color='yellow', point_size=30)
         self.plotter.enable_eye_dome_lighting()
+        self.plotter.enable_fly_to_right_click()
+        self.plotter.add_on_render_callback(self.on_render)
 
     def load_point_cloud(self, point_cloud_path, actor_name):
         try:
@@ -197,7 +199,6 @@ class LidarWindow(QMainWindow):
             self.plotter.add_mesh(centered_pcd, name=actor_name ,style='points', point_size=2, label=actor_name, pickable=False)
         except FileNotFoundError:
             print(f'Le fichier {point_cloud_path} n\' , pas été trouvé')
-
 
     def add_trees(self, tree_data):
         tree_pcd = np.vstack(([entry['x'] for entry in tree_data],
@@ -219,7 +220,7 @@ class LidarWindow(QMainWindow):
         self.camera_parameters[1] -= self.camera_parameters[0] - centered_position
         self.camera_parameters[0] = centered_position
         self.plotter.camera_position = self.camera_parameters
-        self.plotter.camera.clipping_range = (0.5, self.view_depth)
+        self.update_render_view_depth(self.view_depth)
 
     def update_camera_direction(self, camera_direction):
         if camera_direction[2] == 1:
@@ -229,7 +230,15 @@ class LidarWindow(QMainWindow):
 
         self.camera_parameters[1] = self.camera_parameters[0] + camera_direction
         self.plotter.camera_position = self.camera_parameters
-        self.plotter.camera.clipping_range = (0.5, self.view_depth/(1.1-abs(camera_direction[2])**3))
+        self.update_render_view_depth(self.view_depth)
+
+    def update_render_view_depth(self, view_depth):
+        self.view_depth = view_depth
+        self.plotter.camera.clipping_range = (0.5, self.view_depth/(1.1-abs(self.camera_parameters[1][2] - self.camera_parameters[0][2])**3))
+
+    def on_render(self, plotter):
+        self.camera_parameters = [list(bloc) for bloc in self.plotter.camera_position]
+        self.update_render_view_depth(self.view_depth)
 
     def point_picked(self, picked_point):
         picked_point = picked_point + self.translation
