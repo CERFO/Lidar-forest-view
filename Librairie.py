@@ -346,7 +346,8 @@ class CustomMapWidget(QGraphicsView):
         self.setBackgroundBrush(QColor(200, 200, 200))  # Set a light gray background
         
         # conversion des coordonées de la scène et ajout des points
-        self.plot_photo_coordinates(photo_coordinates)
+        if photo_coordinates is not None:
+            self.plot_photo_coordinates(photo_coordinates)
 
         if tree_coordinates is not None: # TODO
             self.plot_tree_coordinates(tree_coordinates)
