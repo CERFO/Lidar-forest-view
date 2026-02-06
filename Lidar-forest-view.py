@@ -74,13 +74,13 @@ class AppManager(QObject):
         try:
             self.photo_info = CSV_to_dict(os.path.join(self.form.paths['project_dir'], 'photo_info.csv'), ',')
         except FileNotFoundError:
-            QMessageBox.critical(self, 'Avertissement', 'Le fichier photo_info.csv est introuvable dans le répertoire du projet. Les données de photos ne seont pas affichées')
+            QMessageBox.critical(None, 'Avertissement', 'Le fichier photo_info.csv est introuvable dans le répertoire du projet. Les données de photos ne seont pas affichées')
             self.photo_info = None
 
         try:
             self.tree_info = CSV_to_dict(os.path.join(self.form.paths['project_dir'], 'tree_info.csv'), ',')
         except FileNotFoundError:
-            QMessageBox.warning(self, 'Avertissement', 'Le fichier tree_info.csv est introuvable dans le répertoire du projet. Les données d\'arbre ne seront pas affichées.')
+            QMessageBox.warning(None, 'Avertissement', 'Le fichier tree_info.csv est introuvable dans le répertoire du projet. Les données d\'arbre ne seront pas affichées.')
             self.tree_info = None
 
         self.photo_window.change_site(self.photo_info, self.tree_info, os.path.join(self.form.paths['project_dir'], 'panoramas'))
@@ -136,7 +136,8 @@ class PhotoWindow(QMainWindow):
         self.gl_widget.new_pointer_direction.connect(self.map_widget.pointer.rotate_pointer)
 
         self.map_widget.plot_photo_coordinates(photo_info)
-        self.map_widget.plot_tree_coordinates(tree_info)
+        if tree_info is not None:
+            self.map_widget.plot_tree_coordinates(tree_info)
         self.map_widget.pointer.setPos(float(photo_info[0]['x']), -float(photo_info[0]['y']))
 
         self.map_widget.fitInView(self.map_widget.scene.itemsBoundingRect(), Qt.KeepAspectRatio)
@@ -144,7 +145,10 @@ class PhotoWindow(QMainWindow):
 
         # Réinitialise les propriétés
         self.propriety_widget.reset()
-        self.propriety_widget.set_fields(list(k for k in tree_info[0].keys() if k not in {'x', 'y', 'z'}))
+        if tree_info is None:
+            self.propriety_widget.set_fields([])
+        else:
+            self.propriety_widget.set_fields(list(k for k in tree_info[0].keys() if k not in {'x', 'y', 'z'}))
 
         # Réinitialise la vue photo
         self.gl_widget.reset()
@@ -234,7 +238,8 @@ class LidarWindow(QMainWindow):
     def change_site(self, cloud_path, tree_info):
         self.reset()
         self.load_point_cloud(cloud_path, 'main_cloud')
-        self.add_trees(tree_info)
+        if tree_info is not None:
+            self.add_trees(tree_info)
 
     def reset(self):
         self.plotter.clear_actors()
