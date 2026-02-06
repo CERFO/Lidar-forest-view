@@ -20,6 +20,9 @@ Python
 
 ## Lancement
 
+### Mise en page
+Mettre des images!
+
 ## Navigation
 ### Carte
 - La carte (en bas à gauche), permet de naviguer entre les différentes photos (points bleus) et arbres (points verts).
@@ -35,5 +38,9 @@ Python
 - En appuyant plutôt sur la roue, la position d'observation change
 - La roue gère le zoom.
 - En appuyant sur un point d'arbre avec le bouton droit de la souris, les données de celui-ci s'affichent. Ce point deviendr jaune dans le nuage lidar et sur la carte
+### Changement de site
+- Cliquer sur le bouton à cet effet en bas à droite de la fenêtre photo
+- Sélectionner l'emplacement du dossier du nouveau site dans l'explorateur de données
+- Attendre que le nouveau site charge
 
 ## Création de projets
