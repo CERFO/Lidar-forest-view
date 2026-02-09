@@ -1,5 +1,56 @@
 # Lidar-forest-view
 Utilitaire de visualisation simultanée de données lidar, photo et cartographique en contexte forestier
+
+## Structure du code
+
+Le projet est organisé en package Python `forest_view/` pour faciliter le travail en équipe et les évolutions.
+
+### Points d’entrée
+
+| Fichier / commande | Usage |
+|--------------------|--------|
+| **`main.py`** | Script à la racine : lance l’application de visualisation. Exécuter : `python main.py`. |
+| **`python -m forest_view`** | Lance la même application via le module (configure OpenGL puis démarre l’app). |
+| **`project_maker.py`** | Outil de création / mise à jour de projets (choix nouveau projet ou ajout de photos). Exécuter : `python project_maker.py`. |
+| **`Creation_projets/Trait_photo_v6.py`** | Traitement des photos (paires, trajectoire, Hugin, export `photo_info.csv`). |
+| **`Creation_projets/trait_insta360.py`** | Traitement spécifique Insta360. |
+| **`Creation_projets/convert_gs_vision_v2.py`** | Conversion GS-Vision vers données projet. |
+
+### Package `forest_view/`
+
+| Fichier | Rôle |
+|---------|------|
+| **`__init__.py`** | Expose `run` pour lancer l’app. |
+| **`__main__.py`** | Point d’entrée du module : configuration OpenGL (QSurfaceFormat), création de l’application Qt et appel à `AppManager`. Définit `run()`. |
+| **`app_manager.py`** | Orchestration : affiche le formulaire de choix du répertoire projet, charge `photo_info.csv` et `tree_info.csv`, crée `PhotoWindow` et `LidarWindow`, connecte les signaux entre fenêtres, charge les nuages lidar (`cloud.laz`, `aero_cloud.laz`) et les arbres. Gère aussi le changement de site. |
+| **`io.py`** | Lecture/écriture fichiers : `readCSV`, `CSV_to_dict`, `writeCSV`, `readJSON`, `writeJSON`, `export_photo_info_to_csv`. Utilisé par l’app, le project maker et les scripts Creation_projets. |
+| **`photo_pipeline.py`** | Traitement des photos : `get_valid_pairs`, `stitch_photos` (Hugin), `get_photo_locations`, `quaternion_to_euler`. Utilisé par les scripts Creation_projets. |
+| **`forms.py`** | Formulaire de saisie de chemins : classe `DataForm` (fichier/répertoire, mémorisation dans `memory.json`). |
+
+### Sous-package `forest_view/widgets/`
+
+| Fichier | Rôle |
+|---------|------|
+| **`__init__.py`** | Réexporte `GLWidget`, `CustomMapWidget`, `Pointer`, `PhotoPoint`, `TreePoint`, `ProprietyWidget`. |
+| **`gl_panorama.py`** | Widget OpenGL `GLWidget` : affichage des panoramas équirectangulaires (sphère texturée), rotation souris, zoom molette, signaux direction caméra et pointeur. |
+| **`map.py`** | Carte des points d’intérêt : `CustomMapWidget` (scène, photo/arbres, zoom, signaux panorama/caméra/propriétés) et `Pointer` (flèche direction de vue). |
+| **`map_items.py`** | Éléments de la carte : `PhotoPoint` (clic = charger panorama + mettre à jour caméra) et `TreePoint` (clic = afficher propriétés, sélection). |
+| **`properties.py`** | Widget `ProprietyWidget` : affichage des champs (ex. propriétés d’un arbre sélectionné). |
+
+### Sous-package `forest_view/windows/`
+
+| Fichier | Rôle |
+|---------|------|
+| **`__init__.py`** | Réexporte `PhotoWindow` et `LidarWindow`. |
+| **`photo_window.py`** | Fenêtre principale photo : `PhotoWindow` (layout avec `GLWidget`, carte, groupe propriétés, bouton « Changer de site »). Gère `change_site` (réinit carte, propriétés, panorama). |
+| **`lidar_window.py`** | Fenêtre 3D lidar : `LidarWindow` (PyVista), chargement nuages `.laz`, affichage des arbres, synchronisation caméra avec la fenêtre photo, picking sur les arbres, changement de site. |
+
+### Racine du dépôt
+
+| Fichier | Rôle |
+|---------|------|
+| **`Librairie.py`** | Stub de compatibilité : réexporte PyQt6, stdlib et symboles `forest_view` (forms, io, photo_pipeline, widgets) pour que les scripts qui font `from Librairie import *` (`project_maker.py`, `Creation_projets/*.py`) fonctionnent sans modification. À terme, migrer ces scripts vers des imports explicites depuis `forest_view.*`. |
+
 ## Contexte de développement
 # Guide d'utilisateur
 ## Table des matières
