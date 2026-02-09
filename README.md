@@ -1,6 +1,33 @@
 # Lidar-forest-view
 Utilitaire de visualisation simultanée de données lidar, photo et cartographique en contexte forestier
 
+## Entrées au lancement
+
+À l’ouverture, l’app demande **un répertoire de projet** (formulaire). Tous les chemins ci‑dessous sont soit ce dossier, soit relatifs à lui (sauf `memory.json`).
+
+| Entrée | Où | Req. | Description |
+|--------|-----|:----:|-------------|
+| **Répertoire de projet** | Saisi au lancement | ✓ | Dossier du projet. Peut être mémorisé dans `memory.json` (répertoire courant). |
+| **`photo_info.csv`** | Dans le projet |  | CSV : `image`, `x`, `y`, `z` ; optionnel `yaw`, `pitch`, `roll`. Sinon : pas de points photo ni panorama. |
+| **`tree_info.csv`** | Dans le projet |  | CSV : `x`, `y`, `z`, `No_tige` + autres colonnes (propriétés). Sinon : pas de points arbre. |
+| **`panoramas/`** | Dans le projet |  | Dossier d’images ; noms = colonne `image` de `photo_info.csv` (ex. `pano0001.jpg`). |
+| **`cloud.laz`** | Dans le projet |  | Nuage lidar principal. Sinon : console + vue 3D vide. |
+| **`aero_cloud.laz`** | Dans le projet |  | Second nuage (ex. aéroporté). Sinon : message console. |
+| **`memory.json`** | Répertoire courant |  | Pré-remplit le dernier répertoire projet ; mis à jour à chaque soumission. |
+
+**Arborescence type d’un projet :**
+
+```
+<répertoire de projet>/
+├── photo_info.csv
+├── tree_info.csv
+├── cloud.laz
+├── aero_cloud.laz
+└── panoramas/
+    ├── pano0001.jpg
+    └── ...
+```
+
 ## Structure du code
 
 Le projet est organisé en package Python `forest_view/` pour faciliter le travail en équipe et les évolutions.
