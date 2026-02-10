@@ -1,25 +1,47 @@
-import gzip
 import logging
 import os
-import shutil
+import re
 import threading
+import zipfile
 from datetime import date
+
+
+def _archive_log_to_zip(log_path, archive_dir):
+    """Compresse le fichier .log en .zip dans archive_dir et supprime le .log. Ne fait rien en cas d'erreur."""
+    if not log_path or not os.path.isfile(log_path):
+        return
+    base_name = os.path.basename(log_path)
+    if not base_name.endswith(".log"):
+        return
+    os.makedirs(archive_dir, exist_ok=True)
+    zip_path = os.path.join(archive_dir, base_name + ".zip")
+    try:
+        with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+            zf.write(log_path, arcname=base_name)
+        os.remove(log_path)
+    except OSError:
+        pass  # laisser le .log en place si la compression ou la suppression échoue
 
 
 class DailyRotatingFileHandler(logging.Handler):
     """
     Écrit dans log/YYYY-MM-DD.log. Au premier écrit d'un nouveau jour,
-    ferme le fichier précédent, le compresse en YYYY-MM-DD.log.gz, puis ouvre le fichier du jour.
+    ferme le fichier précédent, l'archive en .zip dans log/archive/, archive aussi tout .log restant, puis ouvre le fichier du jour.
     """
 
-    def __init__(self, log_dir, archive_subdir=None):
+    _log_filename_re = re.compile(r"^(\d{4}-\d{2}-\d{2})\.log$")
+
+    def __init__(self, log_dir, archive_subdir="archive"):
         super().__init__()
         self._log_dir = os.path.abspath(log_dir)
-        self._archive_subdir = archive_subdir  # inutilisé pour l'instant ; on garde dans le même dossier
+        self._archive_subdir = archive_subdir
         self._current_date = None
         self._current_file_path = None
         self._stream = None
         self._lock = threading.RLock()
+
+    def _archive_dir(self):
+        return os.path.join(self._log_dir, self._archive_subdir)
 
     def _open_for_date(self, d):
         """Ouvre le fichier de log pour la date d (objet date)."""
@@ -29,25 +51,35 @@ class DailyRotatingFileHandler(logging.Handler):
         self._current_date = d
         self._stream = open(path, "a", encoding="utf-8")
 
+    def _archive_dangling_logs(self, today):
+        """Archive tous les fichiers .log dans log_dir qui ne sont pas la date du jour (fichiers « en attente »)."""
+        today_name = today.isoformat() + ".log"
+        archive_dir = self._archive_dir()
+        try:
+            for name in os.listdir(self._log_dir):
+                if name == today_name:
+                    continue
+                m = self._log_filename_re.match(name)
+                if not m:
+                    continue
+                path = os.path.join(self._log_dir, name)
+                if os.path.isfile(path):
+                    _archive_log_to_zip(path, archive_dir)
+        except OSError:
+            pass
+
     def _rollover(self, today):
-        """Ferme le fichier courant, le compresse en gzip, puis ouvre le fichier du jour."""
-        if self._stream is None:
-            return
-        path = self._current_file_path
-        self._stream.flush()
-        self._stream.close()
-        self._stream = None
-        self._current_file_path = None
-        self._current_date = None
-        if path and os.path.isfile(path):
-            gz_path = path + ".gz"
-            try:
-                with open(path, "rb") as f_in:
-                    with gzip.open(gz_path, "wb") as f_out:
-                        shutil.copyfileobj(f_in, f_out)
-                os.remove(path)
-            except OSError:
-                pass  # laisser le .log en place si la compression ou la suppression échoue
+        """Ferme le fichier courant, l'archive en .zip dans archive/, archive les autres .log en attente, puis ouvre le fichier du jour."""
+        if self._stream is not None:
+            path = self._current_file_path
+            self._stream.flush()
+            self._stream.close()
+            self._stream = None
+            self._current_file_path = None
+            self._current_date = None
+            if path:
+                _archive_log_to_zip(path, self._archive_dir())
+        self._archive_dangling_logs(today)
         self._open_for_date(today)
 
     def emit(self, record):
@@ -56,6 +88,7 @@ class DailyRotatingFileHandler(logging.Handler):
                 today = date.today()
                 if self._stream is None:
                     os.makedirs(self._log_dir, exist_ok=True)
+                    self._archive_dangling_logs(today)
                     self._open_for_date(today)
                 elif today != self._current_date:
                     self._rollover(today)
