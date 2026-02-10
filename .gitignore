@@ -217,5 +217,6 @@ __marimo__/
 .streamlit/secrets.toml
 
 # Custom / Project specific
+log/
 *.json
 *.pyc
