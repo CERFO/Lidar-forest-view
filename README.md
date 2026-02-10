@@ -31,6 +31,17 @@ Arborescence de référence attendue par l’app. Chaque élément est soit **g�
     └── ...
 ```
 
+### Outils de préparation des données
+
+Ces outils créent le dossier projet, `panoramas/` et `photo_info.csv`. Ils **ne génèrent pas** `tree_info.csv`, `cloud.laz` ni `aero_cloud.laz` ; à ajouter séparément pour la visualisation complète.
+
+| Outil | Rôle |
+|-------|------|
+| **`project_maker.py`** | Outil unifié : crée le projet + `panoramas/` + `photo_info.csv` à partir de GS-vision, Insta 360, Eagle ou Hémisphérique (trajectoire, calibration, Hugin selon le type). |
+| **`Creation_projets/Trait_photo_v6.py`** | Flux Hémisphérique seul (trajectoire + calibration + fisheye + Hugin) → même structure (panoramas + photo_info). |
+| **`Creation_projets/trait_insta360.py`** | Flux Insta 360 seul (trajectoire CSV + photos panoramiques) → copie des panoramas + photo_info. |
+| **`Creation_projets/convert_gs_vision_v2.py`** | Flux GS-Vision seul (JSON + photos) → copie des panoramas + photo_info. |
+
 ## Structure du code
 
 Le projet est organisé en package Python `forest_view/` pour faciliter le travail en équipe et les évolutions.
