@@ -5,25 +5,28 @@ Utilitaire de visualisation simultanée de données lidar, photo et cartographiq
 
 À l’ouverture, l’app demande **un répertoire de projet** (formulaire). Tous les chemins ci‑dessous sont soit ce dossier, soit relatifs à lui (sauf `memory.json`).
 
-| Entrée | Où | Req. | Description |
-|--------|-----|:----:|-------------|
-| **Répertoire de projet** | Saisi au lancement | ✓ | Dossier du projet. Peut être mémorisé dans `memory.json` (répertoire courant). |
-| **`photo_info.csv`** | Dans le projet |  | CSV : `image`, `x`, `y`, `z` ; optionnel `yaw`, `pitch`, `roll`. Sinon : pas de points photo ni panorama. |
-| **`tree_info.csv`** | Dans le projet |  | CSV : `x`, `y`, `z`, `No_tige` + autres colonnes (propriétés). Sinon : pas de points arbre. |
-| **`panoramas/`** | Dans le projet |  | Dossier d’images ; noms = colonne `image` de `photo_info.csv` (ex. `pano0001.jpg`). |
-| **`cloud.laz`** | Dans le projet |  | Nuage lidar principal. Sinon : console + vue 3D vide. |
-| **`aero_cloud.laz`** | Dans le projet |  | Second nuage (ex. aéroporté). Sinon : message console. |
-| **`memory.json`** | Répertoire courant |  | Pré-remplit le dernier répertoire projet ; mis à jour à chaque soumission. |
+| Entrée | Où | Description |
+|--------|-----|-------------|
+| **Répertoire de projet** | Saisi au lancement | Dossier du projet. Peut être mémorisé dans `memory.json` (répertoire courant). |
+| **`photo_info.csv`** | Dans le projet | CSV : `image`, `x`, `y`, `z` ; optionnel `yaw`, `pitch`, `roll`. Sinon : pas de points photo ni panorama. |
+| **`tree_info.csv`** | Dans le projet | CSV : `x`, `y`, `z`, `No_tige` + autres colonnes (propriétés). Sinon : pas de points arbre. |
+| **`panoramas/`** | Dans le projet | Dossier d'images ; noms = colonne `image` de `photo_info.csv` (ex. `pano0001.jpg`). |
+| **`cloud.laz`** | Dans le projet | Nuage lidar principal. Sinon : console + vue 3D vide. |
+| **`aero_cloud.laz`** | Dans le projet | Second nuage (ex. aéroporté). Sinon : message console. |
+| **`memory.json`** | Répertoire courant | Pré-remplit le dernier répertoire projet ; mis à jour à chaque soumission. |
 
-**Arborescence type d’un projet :**
+### Structure de projet canonique
+
+Arborescence de référence attendue par l’app. Chaque élément est soit **généré par un outil** du dépôt, soit **à ajouter manuellement** (ou via un autre pipeline).
 
 ```
 <répertoire de projet>/
-├── photo_info.csv
-├── tree_info.csv
-├── cloud.laz
-├── aero_cloud.laz
-└── panoramas/
+├── photo_info.csv      # Généré par les outils photo (colonnes : image, timestamp, x, y, z, roll, pitch, yaw)
+├── tree_info.csv       # À ajouter manuellement (colonnes : x, y, z, No_tige, + autres)
+├── cloud.laz           # À ajouter manuellement (nuage lidar principal)
+├── aero_cloud.laz      # À ajouter manuellement (nuage aéroporté)
+└── panoramas/          # Généré par les outils photo
+    ├── pano0000.jpg
     ├── pano0001.jpg
     └── ...
 ```
