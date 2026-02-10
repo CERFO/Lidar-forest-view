@@ -38,9 +38,11 @@ Ces outils créent le dossier projet, `panoramas/` et `photo_info.csv`. Ils **ne
 | Outil | Rôle |
 |-------|------|
 | **`project_maker.py`** | Outil unifié : crée le projet + `panoramas/` + `photo_info.csv` à partir de GS-vision, Insta 360, Eagle ou Hémisphérique (trajectoire, calibration, Hugin selon le type). |
-| **`Creation_projets/Trait_photo_v6.py`** | Flux Hémisphérique seul (trajectoire + calibration + fisheye + Hugin) → même structure (panoramas + photo_info). |
-| **`Creation_projets/trait_insta360.py`** | Flux Insta 360 seul (trajectoire CSV + photos panoramiques) → copie des panoramas + photo_info. |
-| **`Creation_projets/convert_gs_vision_v2.py`** | Flux GS-Vision seul (JSON + photos) → copie des panoramas + photo_info. |
+| **`scripts/Trait_photo_v6.py`** | Flux Hémisphérique seul (trajectoire + calibration + fisheye + Hugin) → même structure (panoramas + photo_info). Script autonome, non utilisé par l’app ni par project_maker. |
+| **`scripts/trait_insta360.py`** | Flux Insta 360 seul (trajectoire CSV + photos panoramiques) → copie des panoramas + photo_info. Script autonome. |
+| **`scripts/convert_gs_vision_v2.py`** | Flux GS-Vision seul (JSON + photos) → copie des panoramas + photo_info. Script autonome. |
+
+Les scripts dans `scripts/` ne sont pas appelés par l’application ni par `project_maker` ; ce sont des points d’entrée alternatifs (un flux par script). Voir [scripts/README.md](scripts/README.md) pour leur usage.
 
 ## Structure du code
 
@@ -53,9 +55,9 @@ Le projet est organisé en package Python `forest_view/` pour faciliter le trava
 | **`main.py`** | Script à la racine : lance l’application de visualisation. Exécuter : `python main.py`. |
 | **`python -m forest_view`** | Lance la même application via le module (configure OpenGL puis démarre l’app). |
 | **`project_maker.py`** | Outil de création / mise à jour de projets (choix nouveau projet ou ajout de photos). Exécuter : `python project_maker.py`. |
-| **`Creation_projets/Trait_photo_v6.py`** | Traitement des photos (paires, trajectoire, Hugin, export `photo_info.csv`). |
-| **`Creation_projets/trait_insta360.py`** | Traitement spécifique Insta360. |
-| **`Creation_projets/convert_gs_vision_v2.py`** | Conversion GS-Vision vers données projet. |
+| **`scripts/Trait_photo_v6.py`** | Traitement Hémisphérique (paires, trajectoire, Hugin, export `photo_info.csv`). Script autonome. |
+| **`scripts/trait_insta360.py`** | Traitement Insta360. Script autonome. |
+| **`scripts/convert_gs_vision_v2.py`** | Conversion GS-Vision vers structure projet. Script autonome. |
 
 ### Package `forest_view/`
 
@@ -64,8 +66,8 @@ Le projet est organisé en package Python `forest_view/` pour faciliter le trava
 | **`__init__.py`** | Expose `run` pour lancer l’app. |
 | **`__main__.py`** | Point d’entrée du module : configuration OpenGL (QSurfaceFormat), création de l’application Qt et appel à `AppManager`. Définit `run()`. |
 | **`app_manager.py`** | Orchestration : affiche le formulaire de choix du répertoire projet, charge `photo_info.csv` et `tree_info.csv`, crée `PhotoWindow` et `LidarWindow`, connecte les signaux entre fenêtres, charge les nuages lidar (`cloud.laz`, `aero_cloud.laz`) et les arbres. Gère aussi le changement de site. |
-| **`io.py`** | Lecture/écriture fichiers : `readCSV`, `CSV_to_dict`, `writeCSV`, `readJSON`, `writeJSON`, `export_photo_info_to_csv`. Utilisé par l’app, le project maker et les scripts Creation_projets. |
-| **`photo_pipeline.py`** | Traitement des photos : `get_valid_pairs`, `stitch_photos` (Hugin), `get_photo_locations`, `quaternion_to_euler`. Utilisé par les scripts Creation_projets. |
+| **`io.py`** | Lecture/écriture fichiers : `readCSV`, `CSV_to_dict`, `writeCSV`, `readJSON`, `writeJSON`, `export_photo_info_to_csv`. Utilisé par l’app, le project maker et les scripts dans `scripts/`. |
+| **`photo_pipeline.py`** | Traitement des photos : `get_valid_pairs`, `stitch_photos` (Hugin), `get_photo_locations`, `quaternion_to_euler`. Utilisé par les scripts dans `scripts/`. |
 | **`forms.py`** | Formulaire de saisie de chemins : classe `DataForm` (fichier/répertoire, mémorisation dans `memory.json`). |
 
 ### Sous-package `forest_view/widgets/`
@@ -90,7 +92,7 @@ Le projet est organisé en package Python `forest_view/` pour faciliter le trava
 
 | Fichier | Rôle |
 |---------|------|
-| **`Librairie.py`** | Stub de compatibilité : réexporte PyQt6, stdlib et symboles `forest_view` (forms, io, photo_pipeline, widgets) pour que les scripts qui font `from Librairie import *` (`project_maker.py`, `Creation_projets/*.py`) fonctionnent sans modification. À terme, migrer ces scripts vers des imports explicites depuis `forest_view.*`. |
+| **`Librairie.py`** | Stub de compatibilité : réexporte PyQt6, stdlib et symboles `forest_view` (forms, io, photo_pipeline, widgets) pour que les scripts qui font `from Librairie import *` (`project_maker.py`, `scripts/*.py`) fonctionnent sans modification. À terme, migrer ces scripts vers des imports explicites depuis `forest_view.*`. |
 
 ## Contexte de développement
 # Guide d'utilisateur
