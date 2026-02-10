@@ -5,7 +5,10 @@ from PyQt6.QtWidgets import QMessageBox
 
 from forest_view.forms import DataForm
 from forest_view.io import CSV_to_dict
+from forest_view.logger import get_logger
 from forest_view.windows import PhotoWindow, LidarWindow
+
+logger = get_logger(__name__)
 
 
 class AppManager(QObject):
@@ -111,3 +114,4 @@ class AppManager(QObject):
             self.tree_info
         )
         print('Nouveau site chargé')
+        logger.info('Nouveau site chargé')

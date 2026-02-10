@@ -6,6 +6,10 @@ import pyvistaqt as pvqt
 from PyQt6.QtCore import pyqtSignal
 from PyQt6.QtWidgets import QMainWindow
 
+from forest_view.logger import get_logger
+
+logger = get_logger(__name__)
+
 
 class LidarWindow(QMainWindow):
     camera_parameters = [[0, 0, 0], [1, 0, 0], [0, 0, 1]]
@@ -44,6 +48,7 @@ class LidarWindow(QMainWindow):
             )
         except FileNotFoundError:
             print(f'Le fichier {point_cloud_path} n\'a pas été trouvé')
+            logger.info(f'Le fichier {point_cloud_path} n\'a pas été trouvé')
 
     def add_trees(self, tree_data):
         if tree_data is None:

@@ -2,6 +2,10 @@ import csv
 import json
 import os
 
+from forest_view.logger import get_logger
+
+logger = get_logger(__name__)
+
 
 def readCSV(filename, delimiter=',', header=True):
     """Lit un fichier CSV et retourne l'en-tête (si demandé) et les lignes."""
@@ -44,6 +48,7 @@ def writeCSV(filename, data, header=None, delimiter=','):
             csvwriter.writerow(header)
         csvwriter.writerows(data)
     print(f"Données exportées vers {filename}")
+    logger.info("Données exportées vers %s", filename)
 
 
 def export_photo_info_to_csv(photo_info, filename):
@@ -93,3 +98,4 @@ def writeJSON(filename, data):
     with open(filename, 'w', encoding='utf-8') as file:
         json.dump(data, file, indent=4, ensure_ascii=False)
     print(f"Données exportées vers {filename}")
+    logger.info("Données exportées vers %s", filename)

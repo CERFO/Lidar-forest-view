@@ -5,6 +5,10 @@ from collections import defaultdict
 
 from PIL import Image
 
+from forest_view.logger import get_logger
+
+logger = get_logger(__name__)
+
 def get_valid_pairs(directory):
     """
     Parcourt les photos d'un répertoire et identifie les paires d'images lisibles.
@@ -43,6 +47,7 @@ def get_valid_pairs(directory):
                 pair['F'][1]
             ])
     print(f'{len(valid_pairs)} paires valides trouvées')
+    logger.info('%s paires valides trouvées', len(valid_pairs))
     return valid_pairs
 
 
@@ -158,6 +163,7 @@ def stitch_photos(pair_list, outdirectory, calibration=None, hugin_root=r'C:\Pro
         if os.path.exists(f):
             os.remove(f)
     print('Les photos sont assemblées!')
+    logger.info('Les photos sont assemblées!')
     return pair_list
 
 
@@ -197,6 +203,7 @@ def get_photo_locations(photo_list, trajectory, trajectory_header, calibration):
         if iteration >= len(photo_list):
             break
     print('Photos localisées!')
+    logger.info('Photos localisées!')
     return photo_list
 
 

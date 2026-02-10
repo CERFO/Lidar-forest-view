@@ -39,6 +39,10 @@ from PyQt6.QtGui import QMatrix4x4
 from PyQt6.QtOpenGL import QOpenGLShader, QOpenGLShaderProgram
 from PyQt6.QtOpenGLWidgets import QOpenGLWidget
 
+from forest_view.logger import get_logger
+
+logger = get_logger(__name__)
+
 
 def _sizeof(ctype):
     return ctypes.sizeof(ctype)
@@ -78,8 +82,10 @@ class GLWidget(QOpenGLWidget):
                 self.model.rotate(image_roll, 0, 0, 1)
                 self.update()
                 print(f"Loaded image: {image_path}")
+                logger.info(f"Loaded image: {image_path}")
             except Exception as e:
                 print(f"Error loading image {image_path}: {e}")
+                logger.info(f"Error loading image {image_path}: {e}")
         else:
             self.image = Image.new('RGB', (100, 50), color='gray')
             self.image_width, self.image_height = self.image.size
@@ -89,11 +95,14 @@ class GLWidget(QOpenGLWidget):
             self.model.setToIdentity()
             self.update()
             print("Loaded image: (none)")
+            logger.info("Loaded image: (none)")
 
     def initializeGL(self):
         from OpenGL import GL
         print("OpenGL version:", glGetString(GL.GL_VERSION))
+        logger.info("OpenGL version: %s", glGetString(GL.GL_VERSION))
         print("GLSL version:", glGetString(GL.GL_SHADING_LANGUAGE_VERSION))
+        logger.info("GLSL version: %s", glGetString(GL.GL_SHADING_LANGUAGE_VERSION))
 
         self.program = QOpenGLShaderProgram(self)
         self.program.addShaderFromSourceCode(

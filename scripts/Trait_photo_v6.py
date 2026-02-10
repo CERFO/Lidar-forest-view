@@ -1,6 +1,11 @@
 from Librairie import *
 import shutil
 
+from forest_view.logger import get_logger, setup_logging
+
+setup_logging()
+logger = get_logger(__name__)
+
 class MainWindow(QWidget):
     def __init__(self):
         super().__init__()
@@ -144,6 +149,7 @@ class MainWindow(QWidget):
         export_photo_info_to_csv(photo_info, os.path.join(project_path, 'photo_info.csv'))
 
         print("Exportations CSV terminées!")
+        logger.info("Exportations CSV terminées!")
 
 app = QApplication([])
 window = MainWindow()
