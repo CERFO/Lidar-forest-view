@@ -197,7 +197,7 @@ def get_photo_locations(photo_list, trajectory, trajectory_header, calibration):
                 entry[trajectory_header.index('x')],
                 entry[trajectory_header.index('y')],
                 entry[trajectory_header.index('z')],
-                roll, pitch, yaw
+                roll, pitch, yaw + 180
             ])
             iteration += 1
         if iteration >= len(photo_list):

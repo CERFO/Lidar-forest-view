@@ -28,7 +28,7 @@ class PhotoPoint(QGraphicsEllipseItem):
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations)
         self.path = path
         self.z = z
-        self.yaw = 90 - yaw
+        self.yaw = yaw
         self.pitch = pitch
         self.roll = roll
         self.parent = parent
