@@ -96,7 +96,7 @@ class ProjectMaker(QWidget):
             if info[0] == 'GS-vision':
                 new_data, index = self.add_gs_vision_scan(info[1], info[2], index, project_path)
             elif info[0] == 'Insta 360':
-                new_data, index = self.add_insta_360_scan(info[1], info[2], index, project_path)
+                new_data, index = self.add_insta_360_scan(info[1], info[2], info[3], index, project_path)
             elif info[0] == 'Eagle':
                 new_data, index = self.add_eagle_scan(info[1], info[2], index, project_path)
             elif info[0] == 'Hémisphérique':
@@ -127,19 +127,19 @@ class ProjectMaker(QWidget):
         index = len(total_data)
         for info in scans_info:
             if info[0] == 'GS-vision':
-                new_data, index = self.add_gs_vision_scan()
+                new_data, index = self.add_gs_vision_scan(info[1], info[2], index, project_path)
             elif info[0] == 'Insta 360':
-                new_data, index = self.add_insta_360_scan(info[1], info[2], index, project_path)
+                new_data, index = self.add_insta_360_scan(info[1], info[2], info[3], index, project_path)
             elif info[0] == 'Eagle':
-                new_data, index = self.add_eagle_scan()
+                new_data, index = self.add_eagle_scan(info[1], info[2], index, project_path)
             elif info[0] == 'Hémisphérique':
-                new_data, index = self.add_plain_scan()
+                new_data, index = self.add_plain_scan(info[1], info[2], info[3], index, project_path, info[4])
 
             total_data.extend(new_data)
 
         self.export_data(total_data, base_form.paths['project_in_dir'])
 
-    def add_insta_360_scan(self, traj_photos_path, photo_dir, index, project_path):
+    def add_insta_360_scan(self, traj_photos_path, photo_dir, camera_orientation,  index, project_path):
         traj_photos = CSV_to_dict(traj_photos_path)
         out_data = []
 
@@ -148,9 +148,18 @@ class ProjectMaker(QWidget):
             roll = float(data['roll'])
             pitch = float(data['pitch'])
             yaw = float(data['yaw'])
+            if camera_orientation == 'Gauche':
+                yaw_offset = -90
+            elif camera_orientation == 'Droite':
+                yaw_offset = 90
+            elif camera_orientation == 'Avant':
+                yaw_offset = 180
+            else:
+                yaw_offset = 0
             yaw_corrected_deg = math.degrees(math.atan2(
                 math.sin(yaw) * math.cos(pitch) + math.cos(yaw) * math.sin(roll) * math.sin(pitch),
-                math.cos(yaw) * math.cos(pitch) - math.sin(yaw) * math.sin(roll) * math.sin(pitch))) + 90
+                math.cos(yaw) * math.cos(pitch) - math.sin(yaw) * math.sin(roll) * math.sin(pitch))
+            ) + yaw_offset
             entry = [
                 entry_name,         # image
                 data['X..world_time'],  # timestamp
@@ -178,15 +187,15 @@ class ProjectMaker(QWidget):
         for data in gs_vision_data:
             entry_name = f'pano{index:04d}.jpg'
             entry = [
-                entry_name,         # image
-                data['time'],       # timestamp
-                data['x'],          # x
-                data['y'],          # y
-                data['z'],          # z
-                data['roll'],       # roll
-                data['pitch'],      # pitch
-                data['heading']     # yaw
-                ]
+                entry_name,                     # image
+                data['time'],                   # timestamp
+                data['x'],                      # x
+                data['y'],                      # y
+                data['z'],                      # z
+                data['roll'],                   # roll
+                data['pitch'],                  # pitch
+                float(data['heading']) + 180    # yaw
+            ]
             out_data.append(entry)
 
             src_path = os.path.join(photo_dir, data['imagePath'][2:])
@@ -197,7 +206,8 @@ class ProjectMaker(QWidget):
         return out_data, index
 
     def add_eagle_scan(self, traj, photo_dir, index, project_path):
-        raise NotImplementedError
+        # insérer 180 de offset au yaw lors de l'impléentation
+        raise NotImplemented
 
     def add_plain_scan(self, traj_path, cam_cal_path, photo_dir, index, project_path, hugin_root):
         out_data = []
@@ -262,6 +272,11 @@ class ScanForm(QDialog):
         self.layout.addRow('Racine Hugin', self.hugin)
         self.layout.setRowVisible(self.hugin, False)
 
+        self.camera_orientation = QComboBox()
+        self.camera_orientation.insertItems(0, ['Gauche', 'Droite', 'Avant', 'Arrière'])
+        self.layout.addRow('Orientation de la caméra', self.camera_orientation)
+        self.layout.setRowVisible(self.camera_orientation, False)
+
         self.submit_button = QPushButton('Soumettre')
         self.submit_button.clicked.connect(self.submit_data)
         self.layout.addRow(self.submit_button)
@@ -276,6 +291,7 @@ class ScanForm(QDialog):
         self.layout.setRowVisible(self.pano_photos, new_text == 'GS-vision' or new_text == 'Insta 360')
         self.layout.setRowVisible(self.fisheye_photos, new_text == 'Eagle' or new_text == 'Hémisphérique')
         self.layout.setRowVisible(self.hugin, new_text == 'Hémisphérique')
+        self.layout.setRowVisible(self.camera_orientation, new_text == 'Insta 360')
         self.adjustSize()
 
     def submit_data(self): # TODO ajouter une sécurité contre les formulaires incomplets
@@ -286,7 +302,7 @@ class ScanForm(QDialog):
                     self.memory[item.field] = item.line_edit.text()
                 else:
                     self.memory.update({item.field: item.line_edit.text()})
-        
+        writeJSON('memory.json', self.memory)
         self.close()
 
     def get_info(self):
@@ -298,7 +314,8 @@ class ScanForm(QDialog):
         elif self.combo_box.currentText() == 'Insta 360':
             return [self.combo_box.currentText(),
                     self.trajectory.line_edit.text(),
-                    self.pano_photos.line_edit.text()]
+                    self.pano_photos.line_edit.text(),
+                    self.camera_orientation.currentText()]
 
         elif self.combo_box.currentText() == 'Eagle':
             return [self.combo_box.currentText(),

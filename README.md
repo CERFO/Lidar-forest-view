@@ -138,3 +138,16 @@ Mettre des images!
 - Attendre que le nouveau site charge
 
 ## Création de projets
+Cette section décrit comment créer un projet ou ajouter des scans dans un projet existant. À la fin des étapes ci-dessous, un dossier de projet contenant le fichier `photo_info.csv` et le répertoire des `panoramas` équirectangulaires.
+- Lancer le script `project_maker.py`
+- Sélectionner «Créer un nouveau projet» ou «Ajouter des photos à un projet existant» selon le cas
+    - Si vous avez choisi de **créer un projets** : sélectionnez l'emplacement où vous désirer créer le projet via le bouton «Browse», puis soumettez. Entrez le nom que vous désirez donner au projet, puis cliquez sur OK.
+    - Si vous avez choisi d'**ajouter des scans** : sélectionnez l'emplacement du dossier de projet via le bouton «Browse», puis soumettez.
+- Saisissez le nombre de scans que vous désirez ajouter
+- Remplissez le formulaire de scans
+    - Choisissez le type de données que vous désirez entrer
+    - Remplissez les champs avec les données demandées
+        - Dans le cas des scans avec Insta 360, il est nécessare de choisir l'orientation de la caméra. Pour distinguer les diverses orientations possibles, observez le côté du lidar se trouvant le plus souvent au centre des images.
+    - Soumettez le formulaire
+- Attendre que le processus se termine
+- Si vous désirer ajouter des données d'arbres et des nuages de points. Vous devrez le faire manuellement

@@ -77,9 +77,9 @@ class GLWidget(QOpenGLWidget):
                 if hasattr(self, 'texture'):
                     self.texture_pending = True
                 self.model.setToIdentity()
+                self.model.rotate(image_roll, 0, 0, 1)
                 self.model.rotate(image_pitch, 1, 0, 0)
                 self.model.rotate(image_yaw, 0, 1, 0)
-                self.model.rotate(image_roll, 0, 0, 1)
                 self.update()
                 print(f"Loaded image: {image_path}")
                 logger.info(f"Loaded image: {image_path}")
@@ -146,7 +146,6 @@ class GLWidget(QOpenGLWidget):
         self.view.setToIdentity()
         self.view.rotate(self.pitch, 1, 0, 0)
         self.view.rotate(self.yaw, 0, 1, 0)
-        self.view.rotate(-90, 0, 1, 0)
         mvp = self.projection * self.view * self.model
         self.program.bind()
         self.program.setUniformValue(self.mvp_loc, mvp)
