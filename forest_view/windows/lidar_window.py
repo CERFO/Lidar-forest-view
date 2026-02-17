@@ -3,7 +3,8 @@ import math
 import laspy as lp
 import numpy as np
 import pyvistaqt as pvqt
-from PyQt6.QtCore import pyqtSignal
+from PyQt6.QtCore import QEvent, Qt, pyqtSignal
+from PyQt6.QtGui import QCursor
 from PyQt6.QtWidgets import QMainWindow
 
 from forest_view.logger import get_logger
@@ -23,6 +24,8 @@ class LidarWindow(QMainWindow):
 
         self.plotter = pvqt.QtInteractor(self)
         self.setCentralWidget(self.plotter.interactor)
+        self.plotter.interactor.installEventFilter(self)
+        self._lidar_saved_cursor = None
 
         self.plotter.set_viewup([0, 0, 1])
         self.plotter.camera.view_angle = 90
@@ -100,6 +103,16 @@ class LidarWindow(QMainWindow):
     def on_render(self, plotter):
         self.camera_parameters = [list(bloc) for bloc in self.plotter.camera_position]
         self._update_render_view_depth(self.view_depth)
+
+    def eventFilter(self, obj, event):
+        if obj is self.plotter.interactor:
+            if event.type() == QEvent.Type.MouseButtonPress:
+                self._lidar_saved_cursor = self.plotter.interactor.cursor()
+                self.plotter.interactor.setCursor(QCursor(Qt.CursorShape.WaitCursor))
+            elif event.type() == QEvent.Type.MouseButtonRelease:
+                cursor = self._lidar_saved_cursor or QCursor(Qt.CursorShape.ArrowCursor)
+                self.plotter.interactor.setCursor(cursor)
+        return super().eventFilter(obj, event)
 
     def point_picked(self, picked_point):
         picked_point = np.array(picked_point) + self.translation

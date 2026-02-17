@@ -1,11 +1,12 @@
 import os
 
 from PyQt6.QtCore import QObject
-from PyQt6.QtWidgets import QMessageBox
+from PyQt6.QtWidgets import QApplication, QMessageBox
 
 from forest_view.forms import DataForm
 from forest_view.io import CSV_to_dict
 from forest_view.logger import get_logger
+from forest_view.widgets import show_overlay
 from forest_view.windows import PhotoWindow, LidarWindow
 
 logger = get_logger(__name__)
@@ -67,17 +68,28 @@ class AppManager(QObject):
             self.photo_window.map_widget.find_point
         )
 
+        self.lidar_window.show()
+        overlay = show_overlay(
+            self.lidar_window.centralWidget(),
+            "Chargement des nuages de points…",
+        )
+        QApplication.processEvents()
+
         self.lidar_window.load_point_cloud(
             os.path.join(self.form.paths['project_dir'], 'cloud.laz'), 'main_cloud'
         )
+        QApplication.processEvents()
         if self.tree_info:
             self.lidar_window.add_trees(self.tree_info)
+        QApplication.processEvents()
         self.lidar_window.load_point_cloud(
             os.path.join(self.form.paths['project_dir'], 'aero_cloud.laz'), 'aeroporté'
         )
+        QApplication.processEvents()
 
+        overlay.hide()
+        overlay.deleteLater()
         self.photo_window.show()
-        self.lidar_window.show()
 
     def change_site(self):
         """Demande un nouveau répertoire de projet et recharge les données et fenêtres."""
@@ -109,9 +121,20 @@ class AppManager(QObject):
             self.photo_info, self.tree_info,
             os.path.join(self.form.paths['project_dir'], 'panoramas')
         )
+
+        overlay = show_overlay(
+            self.lidar_window.centralWidget(),
+            "Chargement des nuages de points…",
+        )
+        QApplication.processEvents()
+
         self.lidar_window.change_site(
             os.path.join(self.form.paths['project_dir'], 'cloud.laz'),
             self.tree_info
         )
+        QApplication.processEvents()
+
+        overlay.hide()
+        overlay.deleteLater()
         print('Nouveau site chargé')
         logger.info('Nouveau site chargé')
