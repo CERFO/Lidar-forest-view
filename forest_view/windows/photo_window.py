@@ -1,5 +1,6 @@
 from PyQt6.QtCore import Qt, QMarginsF
 from PyQt6.QtWidgets import (
+    QApplication,
     QGroupBox,
     QHBoxLayout,
     QMainWindow,
@@ -8,7 +9,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from forest_view.widgets import GLWidget, CustomMapWidget, ProprietyWidget
+from forest_view.widgets import GLWidget, CustomMapWidget, ProprietyWidget, show_overlay
 
 
 class PhotoWindow(QMainWindow):
@@ -46,6 +47,16 @@ class PhotoWindow(QMainWindow):
         central_widget = QWidget()
         central_widget.setLayout(main_layout)
         self.setCentralWidget(central_widget)
+
+    def on_new_panorama(self, path, yaw, pitch, roll):
+        """Charge une image panoramique avec une superposition de chargement sur le widget GL"""
+        overlay = show_overlay(self.gl_widget, "Chargement de la photo…")
+        QApplication.processEvents()
+        self.gl_widget.load_image(path, yaw, pitch, roll)
+        for _ in range(4):
+            QApplication.processEvents()
+        overlay.hide()
+        overlay.deleteLater()
 
     def change_site(self, photo_info, tree_info, photo_dir):
         """Réinitialise la fenêtre pour un nouveau site (données + carte + propriétés + panorama)."""

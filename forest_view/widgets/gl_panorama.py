@@ -35,7 +35,7 @@ from OpenGL.GL import (
 )
 from PIL import Image
 from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import QMatrix4x4
+from PyQt6.QtGui import QCursor, QMatrix4x4
 from PyQt6.QtOpenGL import QOpenGLShader, QOpenGLShaderProgram
 from PyQt6.QtOpenGLWidgets import QOpenGLWidget
 
@@ -178,11 +178,14 @@ class GLWidget(QOpenGLWidget):
 
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
+            self._saved_cursor = self.cursor()
+            self.setCursor(QCursor(Qt.CursorShape.WaitCursor))
             self.mouse_x, self.mouse_y = event.pos().x(), event.pos().y()
             self.moving = True
 
     def mouseReleaseEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
+            self.setCursor(getattr(self, '_saved_cursor', QCursor(Qt.CursorShape.ArrowCursor)))
             self.moving = False
             roll = math.radians(self.image_roll)
             pitch = math.radians(self.pitch)
