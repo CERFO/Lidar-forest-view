@@ -272,7 +272,7 @@ class ProjectMaker(QWidget):
 
 
 def _load_scan_field_help():
-    """Load scan field help from forest_view/field_hints.json."""
+    """Charger les champs d'aide à partir du fichier forest_view/field_hints.json."""
     try:
         import forest_view.forms as _fv_forms
         _path = os.path.join(os.path.dirname(_fv_forms.__file__), 'field_hints.json')
