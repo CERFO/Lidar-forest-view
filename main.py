@@ -1,5 +1,5 @@
 """
-Main entry point: launcher to choose between the navigation tool and the project maker tool.
+Point d'entrée principal : lanceur permettant de choisir entre l'outil de navigation et l'outil de création de projet.
 """
 import sys
 

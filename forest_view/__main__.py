@@ -6,11 +6,11 @@ from forest_view.logger import setup_logging
 
 
 def run(app=None):
-    """Run the navigation (forest view) application.
+    """Exécutez l'application de navigation (vue arborescente).
 
-    Args:
-        app: Optional QApplication instance. If None, one is created and exec() is called.
-             If provided, AppManager is created and the caller is responsible for app.exec().
+    Arguments :
+        app : instance QApplication facultative. Si None, une instance est créée et exec() est appelé.
+             Si fourni, AppManager est créé et l'appelant est responsable de app.exec().
     """
     setup_logging()
     fmt = QSurfaceFormat()
