@@ -9,7 +9,7 @@ logger = get_logger(__name__)
 class ProjectMaker(QWidget):
     def __init__(self):
         super().__init__()
-        
+
         choice = QMessageBox(self)
         choice.setWindowTitle("Choix de l'action")
         choice.setText("Voulez-vous créer un nouveau projet ou ajouter des photos à un projet existant?")
@@ -107,15 +107,53 @@ class ProjectMaker(QWidget):
         self.export_data(total_data, project_path)
 
     def add_scans(self):
-        # Saisie de l'emplacement du projet
-        base_form = DataForm([['Répertoire du projet', 'project_in_dir', 'répertoire']])
-        base_form.exec()
+        # Saisie de l'emplacement du projet (avec validation pour projets incomplets)
+        while True:
+            base_form = DataForm([['Répertoire du projet', 'project_in_dir', 'répertoire']])
+            base_form.exec()
 
-        project_path = base_form.paths['project_in_dir']
+            if not base_form.paths.get('project_in_dir'):
+                return  # utilisateur a annulé (fermeture sans soumettre)
+
+            project_path = base_form.paths['project_in_dir']
+
+            if not os.path.isdir(project_path):
+                reply = QMessageBox.question(
+                    self, 'Répertoire invalide',
+                    f"Le répertoire n'existe pas ou n'est pas accessible :\n{project_path}\n\nChoisir un autre répertoire ou quitter ?",
+                    QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel,
+                    QMessageBox.StandardButton.Ok
+                )
+                if reply == QMessageBox.StandardButton.Cancel:
+                    return
+                continue
+
+            photo_info_path = os.path.join(project_path, 'photo_info.csv')
+            if not os.path.isfile(photo_info_path):
+                choice = QMessageBox(self)
+                choice.setWindowTitle('Projet incomplet')
+                choice.setIcon(QMessageBox.Icon.Warning)
+                choice.setText(
+                    "Ce répertoire ne contient pas photo_info.csv.\n\n"
+                    "Un projet existant doit déjà avoir au moins un scan exporté (fichier créé après le premier scan). "
+                    "Si le projet est en cours de création ou vide, créez d'abord un nouveau projet."
+                )
+                btn_other = choice.addButton('Choisir un autre répertoire', QMessageBox.ButtonRole.ActionRole)
+                btn_new = choice.addButton('Créer un nouveau projet', QMessageBox.ButtonRole.ActionRole)
+                btn_quit = choice.addButton('Quitter', QMessageBox.ButtonRole.RejectRole)
+                choice.exec()
+                if choice.clickedButton() == btn_new:
+                    self.create_project()
+                    return
+                if choice.clickedButton() == btn_quit:
+                    QApplication.quit()
+                    return
+                continue
+            break
 
         # Saisie du nombre des scans à incorporer
         num_scans, _ = QInputDialog.getInt(self, 'Nombre de scans', 'Entrez le nombre de scans à incorporer :', 1, 1, 100)
-        _, total_data = readCSV(os.path.join(base_form.paths['project_in_dir'], 'photo_info.csv'))
+        _, total_data = readCSV(os.path.join(project_path, 'photo_info.csv'))
         scans_info = []
 
         for i in range(num_scans):
@@ -137,7 +175,7 @@ class ProjectMaker(QWidget):
 
             total_data.extend(new_data)
 
-        self.export_data(total_data, base_form.paths['project_in_dir'])
+        self.export_data(total_data, project_path)
 
     def add_insta_360_scan(self, traj_photos_path, photo_dir, camera_orientation,  index, project_path):
         traj_photos = CSV_to_dict(traj_photos_path)
