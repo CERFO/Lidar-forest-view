@@ -270,6 +270,39 @@ class ProjectMaker(QWidget):
         print("Exportations CSV terminées!")
         logger.info("Exportations CSV terminées!")
 
+
+def _load_scan_field_help():
+    """Load scan field help from forest_view/field_hints.json."""
+    try:
+        import forest_view.forms as _fv_forms
+        _path = os.path.join(os.path.dirname(_fv_forms.__file__), 'field_hints.json')
+        _data = readJSON(_path) if os.path.exists(_path) else {}
+        return _data.get('scan_field_help', {})
+    except Exception:
+        return {}
+
+SCAN_FIELD_HELP = _load_scan_field_help()
+
+
+def _make_label_with_help(label_text, help_by_type):
+    """Crée un widget label + icône ⓘ. help_by_type est un dict { type_scan: tooltip }; la forme met à jour le tooltip dans on_text_change."""
+    widget = QWidget()
+    layout = QHBoxLayout(widget)
+    layout.setContentsMargins(0, 0, 0, 0)
+    layout.setSpacing(4)
+    lbl = QLabel(label_text)
+    layout.addWidget(lbl)
+    info = QLabel("ⓘ")
+    info.setCursor(Qt.CursorShape.WhatsThisCursor)
+    font = info.font()
+    font.setPointSize(max(8, font.pointSize() - 1))
+    info.setFont(font)
+    info.setStyleSheet("")  # use theme text color (white on dark, black on light)
+    layout.addWidget(info)
+    layout.addStretch()
+    return widget, info, help_by_type
+
+
 class ScanForm(QDialog):
     def __init__(self, no_scan):
         super().__init__()
@@ -280,40 +313,65 @@ class ScanForm(QDialog):
         self.memory = readJSON('memory.json') if os.path.exists('memory.json') else {}
 
         self.layout = QFormLayout()
+        self._help_info_labels = []  # liste de (info_label, help_by_type)
 
         self.combo_box = QComboBox()
         self.combo_box.insertItems(0, ['Sélectionner', 'GS-vision', 'Insta 360', 'Eagle', 'Hémisphérique'])
         self.combo_box.currentTextChanged.connect(self.on_text_change)
         self.layout.addRow('Type de données', self.combo_box)
 
+        traj_label, traj_info, traj_help = _make_label_with_help('Trajectoire photos', {
+            t: SCAN_FIELD_HELP[t]['trajectory'] for t in ('Insta 360', 'Eagle', 'Hémisphérique')
+            if t in SCAN_FIELD_HELP and 'trajectory' in SCAN_FIELD_HELP[t]
+        })
+        self._help_info_labels.append((traj_info, traj_help))
         self.trajectory = BrowseLayout('Trajectoire photos', 'traj_photos_path', 'file', self.memory)
-        self.layout.addRow('Trajectoire photos', self.trajectory)
+        self.layout.addRow(traj_label, self.trajectory)
         self.layout.setRowVisible(self.trajectory, False)
 
+        gs_label, gs_info, gs_help = _make_label_with_help('GS-Vision', {'GS-vision': SCAN_FIELD_HELP['GS-vision']['gs_vision']})
+        self._help_info_labels.append((gs_info, gs_help))
         self.gs_vision = BrowseLayout('GS-Vision', 'gs_vision_path', 'file', self.memory)
-        self.layout.addRow('GS-Vision', self.gs_vision)
+        self.layout.addRow(gs_label, self.gs_vision)
         self.layout.setRowVisible(self.gs_vision, False)
 
+        cal_label, cal_info, cal_help = _make_label_with_help('Calibration', {'Hémisphérique': SCAN_FIELD_HELP['Hémisphérique']['calibration']})
+        self._help_info_labels.append((cal_info, cal_help))
         self.calibration = BrowseLayout('Calibration', 'cam_cal_path', 'file', self.memory)
-        self.layout.addRow('Calibration', self.calibration)
+        self.layout.addRow(cal_label, self.calibration)
         self.layout.setRowVisible(self.calibration, False)
 
+        pano_label, pano_info, pano_help = _make_label_with_help('Photos panoramiques', {
+            t: SCAN_FIELD_HELP[t]['pano_photos'] for t in ('Insta 360', 'GS-vision')
+        })
+        self._help_info_labels.append((pano_info, pano_help))
         self.pano_photos = BrowseLayout('Photos panoramiques', 'panoramic_photos_dir', 'répertoire', self.memory)
-        self.layout.addRow('Photos panoramiques', self.pano_photos)
+        self.layout.addRow(pano_label, self.pano_photos)
         self.layout.setRowVisible(self.pano_photos, False)
 
+        fisheye_label, fisheye_info, fisheye_help = _make_label_with_help('Photos fisheye', {
+            t: SCAN_FIELD_HELP[t]['fisheye_photos'] for t in ('Eagle', 'Hémisphérique')
+        })
+        self._help_info_labels.append((fisheye_info, fisheye_help))
         self.fisheye_photos = BrowseLayout('Photos fisheye', 'fisheye_photos_dir', 'répertoire', self.memory)
-        self.layout.addRow('Photos fisheye', self.fisheye_photos)
+        self.layout.addRow(fisheye_label, self.fisheye_photos)
         self.layout.setRowVisible(self.fisheye_photos, False)
 
+        hugin_label, hugin_info, hugin_help = _make_label_with_help('Racine Hugin', {'Hémisphérique': SCAN_FIELD_HELP['Hémisphérique']['hugin']})
+        self._help_info_labels.append((hugin_info, hugin_help))
         self.hugin = BrowseLayout('Racine Hugin', 'hugin_root', 'répertoire', self.memory)
-        self.layout.addRow('Racine Hugin', self.hugin)
+        self.layout.addRow(hugin_label, self.hugin)
         self.layout.setRowVisible(self.hugin, False)
 
+        cam_label, cam_info, cam_help = _make_label_with_help('Orientation de la caméra', {'Insta 360': SCAN_FIELD_HELP['Insta 360']['camera_orientation']})
+        self._help_info_labels.append((cam_info, cam_help))
         self.camera_orientation = QComboBox()
         self.camera_orientation.insertItems(0, ['Gauche', 'Droite', 'Avant', 'Arrière'])
-        self.layout.addRow('Orientation de la caméra', self.camera_orientation)
+        self.layout.addRow(cam_label, self.camera_orientation)
         self.layout.setRowVisible(self.camera_orientation, False)
+
+        for info, _ in self._help_info_labels:
+            info.installEventFilter(self)
 
         self.submit_button = QPushButton('Soumettre')
         self.submit_button.clicked.connect(self.submit_data)
@@ -321,6 +379,21 @@ class ScanForm(QDialog):
 
         self.setLayout(self.layout)
         self.adjustSize()
+
+    def eventFilter(self, obj, event):
+        if event.type() == QEvent.Type.Enter:
+            for info, help_by_type in self._help_info_labels:
+                if obj is info and help_by_type:
+                    text = help_by_type.get(self.combo_box.currentText(), "")
+                    if text:
+                        QToolTip.showText(QCursor.pos(), text)
+                    break
+        elif event.type() == QEvent.Type.Leave:
+            for info, _ in self._help_info_labels:
+                if obj is info:
+                    QToolTip.hideText()
+                    break
+        return super().eventFilter(obj, event)
 
     def on_text_change(self, new_text):
         self.layout.setRowVisible(self.trajectory, new_text == 'Insta 360' or new_text == 'Eagle' or new_text == 'Hémisphérique')
@@ -330,6 +403,8 @@ class ScanForm(QDialog):
         self.layout.setRowVisible(self.fisheye_photos, new_text == 'Eagle' or new_text == 'Hémisphérique')
         self.layout.setRowVisible(self.hugin, new_text == 'Hémisphérique')
         self.layout.setRowVisible(self.camera_orientation, new_text == 'Insta 360')
+        for info, help_by_type in self._help_info_labels:
+            info.setToolTip(help_by_type.get(new_text, "") if help_by_type else "")
         self.adjustSize()
 
     def submit_data(self): # TODO ajouter une sécurité contre les formulaires incomplets

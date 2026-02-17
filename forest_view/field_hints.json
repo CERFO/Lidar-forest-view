@@ -1,0 +1,33 @@
+{
+  "project_dir": "Répertoire (dossier) contenant le projet.\nDoit contenir : photo_info.csv, tree_info.csv, panoramas/, cloud.laz, aero_cloud.laz.\nVoir docs/formats_entrees.md pour le détail des formats.",
+  "project_out_dir": "Répertoire dans lequel le nouveau projet sera créé.",
+  "project_in_dir": "Répertoire du projet existant auquel ajouter des scans.",
+  "gs_vision_path": "Chemin vers l'outil ou le fichier GS-Vision.",
+  "traj_photos_path": "Chemin vers le fichier de trajectoire des photos.",
+  "traj_path": "Chemin vers le fichier de trajectoire.",
+  "panoramic_photos_dir": "Répertoire contenant les images panoramiques.",
+  "raw_photo_dir": "Répertoire contenant les photos brutes.",
+  "hugin_root": "Répertoire racine de l'installation Hugin.",
+  "cam_cal_path": "Fichier JSON de calibration caméra.",
+  "scan_field_help": {
+    "Insta 360": {
+      "trajectory": "Fichier CSV (virgule) avec en-tête. Colonnes requises : name, x, y, z, roll, pitch, yaw, X..world_time. Une ligne par photo ; la colonne « name » doit contenir le nom du fichier image dans le dossier Photos panoramiques. Voir docs/formats_scan_insta360.md pour le détail.",
+      "pano_photos": "Répertoire contenant les images panoramiques (ex. JPG). Chaque nom de fichier doit apparaître dans la colonne « name » du CSV de trajectoire.",
+      "camera_orientation": "Direction de la caméra par rapport au déplacement : Gauche (-90°), Droite (+90°), Avant (180°), Arrière (0°). Choisir selon le côté du lidar le plus souvent au centre des images."
+    },
+    "GS-vision": {
+      "gs_vision": "Fichier JSON d'export GS-Vision contenant la clé « images » (chemins et positions).",
+      "pano_photos": "Répertoire contenant les images panoramiques référencées dans le fichier GS-Vision."
+    },
+    "Eagle": {
+      "trajectory": "Fichier de trajectoire (format attendu par le flux Eagle).",
+      "fisheye_photos": "Répertoire contenant les paires de photos fisheye."
+    },
+    "Hémisphérique": {
+      "trajectory": "Fichier de trajectoire (séparateur espace), avec en-tête.",
+      "calibration": "Fichier JSON de calibration caméra.",
+      "fisheye_photos": "Répertoire contenant les paires de photos fisheye (F/R).",
+      "hugin": "Répertoire racine de l'installation Hugin (ex. C:\\Program Files\\Hugin)."
+    }
+  }
+}
