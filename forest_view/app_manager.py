@@ -15,7 +15,9 @@ logger = get_logger(__name__)
 class AppManager(QObject):
     def __init__(self):
         super().__init__()
-        self.form = DataForm([['Répertoire de projet', 'project_dir', 'répertoire']])
+        self.form = DataForm([
+            ['Répertoire de projet', 'project_dir', 'répertoire'],
+        ])
         self.form.exec()
 
         try:
