@@ -36,11 +36,11 @@ def writeCSV(filename, data, header=None, delimiter=','):
     """
     Exporte des données vers un fichier CSV.
 
-    Args:
+    Paramètres:
         filename (str): Nom du fichier CSV à créer
         data (list): Liste de listes contenant les données
-        header (list, optional): Entête des colonnes
-        delimiter (str): Séparateur (par défaut: virgule)
+        header (list, optional): En-tête des colonnes
+        delimiter (str): Séparateur (par défaut : virgule)
     """
     with open(filename, 'w', newline='', encoding='utf-8') as file:
         csvwriter = csv.writer(file, delimiter=delimiter)
@@ -55,9 +55,9 @@ def export_photo_info_to_csv(photo_info, filename):
     """
     Exporte les informations des photos vers un fichier CSV.
 
-    Args:
+    Paramètres:
         photo_info (list): Liste des informations des photos
-        filename (str): Nom (path complet) du fichier CSV de sortie
+        filename (str): Nom (chemin complet) du fichier CSV de sortie
     """
     if isinstance(photo_info[0][0], list):
         header = ['image_avant', 'image_arrière', 'timestamp', 'x', 'y', 'z', 'roll', 'pitch', 'yaw']
@@ -91,7 +91,7 @@ def writeJSON(filename, data):
     """
     Exporte des données vers un fichier JSON.
 
-    Args:
+    Paramètres:
         filename (str): Nom du fichier JSON à créer
         data (dict): Dictionnaire contenant les données à exporter
     """

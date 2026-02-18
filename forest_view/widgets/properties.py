@@ -6,7 +6,7 @@ class ProprietyWidget(QWidget):
     """
     Widget de propriétés pour afficher les informations des points d'intérêt.
 
-    Args:
+    Paramètres:
         fields (list): Liste de noms de champs à afficher.
     """
     def __init__(self, fields):

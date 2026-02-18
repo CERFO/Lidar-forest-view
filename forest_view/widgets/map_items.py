@@ -12,7 +12,7 @@ class PhotoPoint(QGraphicsEllipseItem):
     """
     Point interactif pour les photos sur la carte.
 
-    Args:
+    Paramètres:
         path (str): Chemin de l'image associée.
         x, y (float): Position dans la scène.
         z (float): Altitude.
@@ -48,7 +48,7 @@ class TreePoint(QGraphicsEllipseItem):
     """
     Point interactif pour les arbres sur la carte.
 
-    Args:
+    Paramètres:
         x, y (float): Position dans la scène.
         tree_data (dict): Données de l'arbre.
         parent: CustomMapWidget.

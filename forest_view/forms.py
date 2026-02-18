@@ -23,7 +23,7 @@ class DataForm(QDialog):
     """
     Formulaire de saisie de chemins d'accès vers des fichiers ou des répertoires.
 
-    Args:
+    Paramètres:
         fields (list): Liste de tuples (texte du label, nom du champ, type).
             type : 'file' ou 'répertoire'. L'aide (infobulle ⓘ) est chargée depuis
             forest_view/field_hints.json selon le nom du champ.

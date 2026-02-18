@@ -13,7 +13,7 @@ def get_valid_pairs(directory):
     """
     Parcourt les photos d'un répertoire et identifie les paires d'images lisibles.
 
-    Args:
+    Paramètres:
         directory (str): Chemin du répertoire contenant les photos
 
     Retourne:
@@ -55,7 +55,7 @@ def stitch_photos(pair_list, outdirectory, calibration=None, hugin_root=r'C:\Pro
     """
     Assemble des paires de photos fisheye en photos panoramiques.
 
-    Args:
+    Paramètres:
         pair_list (list): Liste de paires d'images à assembler
         outdirectory (str): Répertoire de sortie pour les images assemblées
         calibration (dict, optional): Fichier de calibration
@@ -171,7 +171,7 @@ def get_photo_locations(photo_list, trajectory, trajectory_header, calibration):
     """
     Associe les photos à leurs emplacements dans le trajet.
 
-    Args:
+    Paramètres:
         photo_list (list): Liste des photos à associer
         trajectory (list): Liste des points de la trajectoire
         trajectory_header (list): En-tête du fichier trajectoire
@@ -211,7 +211,7 @@ def quaternion_to_euler(qw, qx, qy, qz):
     """
     Convertit un quaternion en angles d'Euler (roulis, tangage, lacet) en degrés.
 
-    Args:
+    Paramètres:
         qw, qx, qy, qz: Composantes du quaternion (w, x, y, z)
 
     Retourne:
