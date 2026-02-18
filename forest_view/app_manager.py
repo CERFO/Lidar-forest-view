@@ -61,7 +61,7 @@ class AppManager(QObject):
             self.lidar_window.update_camera_position
         )
         self.photo_window.map_widget.new_panorama.connect(
-            self.photo_window.on_new_panorama
+            self.photo_window.gl_widget.load_image
         )
         self.photo_window.map_widget.new_tree_attributes.connect(
             self.photo_window.propriety_widget.load_data
