@@ -86,3 +86,7 @@ class PhotoWindow(QMainWindow):
 
         self.gl_widget.reset()
         self.gl_widget.photo_dir = photo_dir
+
+    def closeEvent(self, event):
+        super().closeEvent(event)
+        QApplication.quit()

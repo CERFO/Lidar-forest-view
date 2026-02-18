@@ -5,7 +5,7 @@ import numpy as np
 import pyvistaqt as pvqt
 from PyQt6.QtCore import QEvent, Qt, pyqtSignal
 from PyQt6.QtGui import QCursor
-from PyQt6.QtWidgets import QMainWindow
+from PyQt6.QtWidgets import QApplication, QMainWindow
 
 from forest_view.logger import get_logger
 
@@ -133,3 +133,4 @@ class LidarWindow(QMainWindow):
     def closeEvent(self, event):
         self.plotter.close()
         super().closeEvent(event)
+        QApplication.quit()
