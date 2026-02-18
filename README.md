@@ -146,8 +146,8 @@ Cette section décrit comment créer un projet ou ajouter des scans dans un proj
 - Saisissez le nombre de scans que vous désirez ajouter
 - Remplissez le formulaire de scans
     - Choisissez le type de données que vous désirez entrer
-    - Remplissez les champs avec les données demandées
-        - Dans le cas des scans avec Insta 360, il est nécessare de choisir l'orientation de la caméra. Pour distinguer les diverses orientations possibles, observez le côté du lidar se trouvant le plus souvent au centre des images.
+    - Remplissez les champs avec les données demandées. **Format des champs pour Insta 360** (trajectoire CSV, dossier photos, orientation) : voir [docs/formats_scan_insta360.md](docs/formats_scan_insta360.md).
+        - Dans le cas des scans avec Insta 360, il est nécessaire de choisir l'orientation de la caméra. Pour distinguer les diverses orientations possibles, observez le côté du lidar se trouvant le plus souvent au centre des images.
     - Soumettez le formulaire
 - Attendre que le processus se termine
 - Si vous désirer ajouter des données d'arbres et des nuages de points. Vous devrez le faire manuellement

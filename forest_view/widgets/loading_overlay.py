@@ -9,7 +9,7 @@ from PyQt6.QtWidgets import (
 
 
 class LoadingOverlay(QWidget):
-    """Semi-transparent overlay with message and indeterminate progress bar."""
+    """Superposition semi-transparente avec message et barre de progression indéterminée."""
 
     def __init__(self, parent: QWidget, message: str = "Chargement…"):
         super().__init__(parent)
@@ -85,7 +85,7 @@ class LoadingOverlay(QWidget):
 
 
 def show_overlay(parent: QWidget, message: str = "Chargement…") -> LoadingOverlay:
-    """Create, show and return a LoadingOverlay on parent. Caller must hide/deleteLater when done."""
+    """Créer, afficher et renvoyer un LoadingOverlay sur le parent. L'appelant doit masquer/supprimer ultérieurement une fois terminé."""
     overlay = LoadingOverlay(parent, message)
     overlay.show()
     return overlay
