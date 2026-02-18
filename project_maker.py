@@ -35,7 +35,7 @@ class ProjectMaker(QWidget):
                 QMessageBox.warning(self, 'Erreur', 'Le nom du projet ne peut pas être vide.')
                 project_name, _ = QInputDialog.getText(self, 'Nom du projet', 'Entrez le nom du projet :')
             elif not accepted:
-                # Show a message box to inform the user
+                # Afficher une boîte de dialogue pour informer l'utilisateur
                 reply = QMessageBox.question(self, 'Vous partez déjà?',
                                             'Êtes-vous sûr de vouloir quitter?',
                                             QMessageBox.Yes | QMessageBox.No,
@@ -297,7 +297,7 @@ def _make_label_with_help(label_text, help_by_type):
     font = info.font()
     font.setPointSize(max(8, font.pointSize() - 1))
     info.setFont(font)
-    info.setStyleSheet("")  # use theme text color (white on dark, black on light)
+    info.setStyleSheet("")  # utilise la couleur de texte du thème (blanc sur fond sombre, noir sur clair)
     layout.addWidget(info)
     layout.addStretch()
     return widget, info, help_by_type

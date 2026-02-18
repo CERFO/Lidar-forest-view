@@ -25,7 +25,7 @@ class DataForm(QDialog):
 
     Args:
         fields (list): Liste de tuples (texte du label, nom du champ, type).
-            type: 'file' ou 'répertoire'. L'aide (tooltip ⓘ) est chargée depuis
+            type : 'file' ou 'répertoire'. L'aide (infobulle ⓘ) est chargée depuis
             forest_view/field_hints.json selon le nom du champ.
         title (str): Titre de la fenêtre du formulaire.
     """
@@ -42,7 +42,7 @@ class DataForm(QDialog):
         self.fields = {}
         self.paths = {}
         self.memory = readJSON('appsettings.json') if os.path.exists('appsettings.json') else {}
-        self._instant_tooltip = {}  # id(widget) -> help text, for instant show on hover
+        self._instant_tooltip = {}  # id(widget) -> texte d'aide, pour affichage immédiat au survol
 
         _hints_path = os.path.join(os.path.dirname(__file__), 'field_hints.json')
         self._field_hints = readJSON(_hints_path) if os.path.exists(_hints_path) else {}
@@ -73,7 +73,7 @@ class DataForm(QDialog):
             font = QFont(info.font())
             font.setPointSize(font.pointSize() - 1)
             info.setFont(font)
-            info.setStyleSheet("")  # use theme text color (white on dark, black on light)
+            info.setStyleSheet("")  # utilise la couleur de texte du thème (blanc sur fond sombre, noir sur clair)
             self._instant_tooltip[id(info)] = help_text
             info.installEventFilter(self)
             label_layout.addWidget(info)

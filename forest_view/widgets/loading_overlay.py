@@ -8,6 +8,8 @@ from PyQt6.QtWidgets import (
 )
 
 
+class InfiniteLoadBar(QWidget):
+    """Barre horizontale fine avec un segment qui se déplace en boucle (effet de chargement infini)."""
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -47,7 +49,7 @@ from PyQt6.QtWidgets import (
 
 
 class LoadingOverlay(QWidget):
-    """Superposition semi-transparente avec message et barre de progression indéterminée."""
+    """Superposition semi-transparente avec message et barre de chargement infinie."""
 
     def __init__(self, parent: QWidget, message: str = "Chargement…"):
         super().__init__(parent)
@@ -103,6 +105,8 @@ class LoadingOverlay(QWidget):
             self._center_panel()
         return super().eventFilter(obj, event)
 
+    def dismiss(self):
+        """Retire la superposition proprement : désinstalle le filtre d'événements, masque, puis programme la suppression.
         Évite que le parent n'appelle ce widget après sa destruction."""
         if getattr(self, "_dismissed", False):
             return

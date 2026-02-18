@@ -49,7 +49,6 @@ class PhotoWindow(QMainWindow):
         self.setCentralWidget(central_widget)
 
     def on_new_panorama(self, path, yaw, pitch, roll):
-        """Charge une image panoramique avec une superposition de chargement sur le widget GL"""
         """Charge une image panoramique avec une superposition de chargement sur le widget GL."""
         if getattr(self, "_loading_panorama", False):
             return

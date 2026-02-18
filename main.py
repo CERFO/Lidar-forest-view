@@ -20,7 +20,7 @@ from forest_view.logger import setup_logging
 def main():
     setup_logging()
 
-    # OpenGL format required by forest_view
+    # Format OpenGL requis par forest_view
     fmt = QSurfaceFormat()
     fmt.setVersion(4, 5)
     fmt.setProfile(QSurfaceFormat.OpenGLContextProfile.CoreProfile)
@@ -59,7 +59,7 @@ def main():
 
 
 def run_tool(dialog, tool: str):
-    """Close launcher and schedule tool to start once the event loop is running."""
+    """Ferme le lanceur et programme le démarrage de l'outil au prochain cycle de la boucle d'événements."""
     dialog.accept()
     dialog.close()
     QTimer.singleShot(0, lambda: _start_tool(tool))

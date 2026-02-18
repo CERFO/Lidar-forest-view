@@ -81,11 +81,11 @@ class GLWidget(QOpenGLWidget):
                 self.model.rotate(image_pitch, 1, 0, 0)
                 self.model.rotate(image_yaw, 0, 1, 0)
                 self.update()
-                print(f"Loaded image: {image_path}")
-                logger.info(f"Loaded image: {image_path}")
+                print(f"Image chargée : {image_path}")
+                logger.info(f"Image chargée : {image_path}")
             except Exception as e:
-                print(f"Error loading image {image_path}: {e}")
-                logger.info(f"Error loading image {image_path}: {e}")
+                print(f"Erreur au chargement de l'image {image_path} : {e}")
+                logger.info(f"Erreur au chargement de l'image {image_path} : {e}")
         else:
             self.image = Image.new('RGB', (100, 50), color='gray')
             self.image_width, self.image_height = self.image.size
@@ -94,15 +94,15 @@ class GLWidget(QOpenGLWidget):
             self.yaw = 0
             self.model.setToIdentity()
             self.update()
-            print("Loaded image: (none)")
-            logger.info("Loaded image: (none)")
+            print("Image chargée : (aucune)")
+            logger.info("Image chargée : (aucune)")
 
     def initializeGL(self):
         from OpenGL import GL
-        print("OpenGL version:", glGetString(GL.GL_VERSION))
-        logger.info("OpenGL version: %s", glGetString(GL.GL_VERSION))
-        print("GLSL version:", glGetString(GL.GL_SHADING_LANGUAGE_VERSION))
-        logger.info("GLSL version: %s", glGetString(GL.GL_SHADING_LANGUAGE_VERSION))
+        print("Version OpenGL :", glGetString(GL.GL_VERSION))
+        logger.info("Version OpenGL : %s", glGetString(GL.GL_VERSION))
+        print("Version GLSL :", glGetString(GL.GL_SHADING_LANGUAGE_VERSION))
+        logger.info("Version GLSL : %s", glGetString(GL.GL_SHADING_LANGUAGE_VERSION))
 
         self.program = QOpenGLShaderProgram(self)
         self.program.addShaderFromSourceCode(

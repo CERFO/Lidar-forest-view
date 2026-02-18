@@ -135,5 +135,6 @@ class AppManager(QObject):
         )
         QApplication.processEvents()
 
+        overlay.dismiss()
         print('Nouveau site chargé')
         logger.info('Nouveau site chargé')
