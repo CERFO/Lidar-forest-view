@@ -1,11 +1,49 @@
-from PyQt6.QtCore import QEvent, Qt
+from PyQt6.QtCore import QEvent, Qt, QTimer, QRectF
+from PyQt6.QtGui import QPainter, QColor, QBrush, QPen
 from PyQt6.QtWidgets import (
     QFrame,
     QLabel,
-    QProgressBar,
     QVBoxLayout,
     QWidget,
 )
+
+
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setFixedSize(200, 8)
+        self._offset = 0.0
+        self._timer = QTimer(self)
+        self._timer.timeout.connect(self._tick)
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        self._timer.start(32)
+
+    def hideEvent(self, event):
+        self._timer.stop()
+        super().hideEvent(event)
+
+    def _tick(self):
+        self._offset = (self._offset + 0.04) % 1.0
+        self.update()
+
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        w, h = self.width(), self.height()
+        track_radius = h // 2
+        chunk_width = max(40, w // 3)
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        # Piste (fond)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QBrush(QColor(60, 60, 60, 200)))
+        painter.drawRoundedRect(QRectF(0, 0, w, h), track_radius, track_radius)
+        # Segment mobile (boucle infinie)
+        x = (w + chunk_width) * self._offset - chunk_width
+        painter.setBrush(QBrush(QColor(74, 158, 255)))
+        painter.drawRoundedRect(QRectF(x, 0, chunk_width, h), track_radius, track_radius)
 
 
 class LoadingOverlay(QWidget):
@@ -34,18 +72,8 @@ class LoadingOverlay(QWidget):
         self._label.setStyleSheet("color: white; font-size: 14px;")
         layout.addWidget(self._label, alignment=Qt.AlignmentFlag.AlignCenter)
 
-        self._progress = QProgressBar()
-        self._progress.setRange(0, 0)
-        self._progress.setFixedWidth(200)
-        self._progress.setStyleSheet(
-            "QProgressBar {"
-            "  border: 1px solid rgba(100, 100, 100, 200);"
-            "  border-radius: 4px;"
-            "  background-color: rgba(60, 60, 60, 200);"
-            "}"
-            "QProgressBar::chunk { background-color: #4a9eff; border-radius: 3px; }"
-        )
-        layout.addWidget(self._progress, alignment=Qt.AlignmentFlag.AlignCenter)
+        self._load_bar = InfiniteLoadBar(panel)
+        layout.addWidget(self._load_bar, alignment=Qt.AlignmentFlag.AlignCenter)
 
         self._panel = panel
         self._center_panel()
@@ -74,6 +102,16 @@ class LoadingOverlay(QWidget):
             self.setGeometry(self.parent().rect())
             self._center_panel()
         return super().eventFilter(obj, event)
+
+        Évite que le parent n'appelle ce widget après sa destruction."""
+        if getattr(self, "_dismissed", False):
+            return
+        self._dismissed = True
+        parent = self.parent()
+        if parent is not None:
+            parent.removeEventFilter(self)
+        self.hide()
+        self.deleteLater()
 
     def paintEvent(self, event):
         from PyQt6.QtGui import QPainter, QColor

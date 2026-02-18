@@ -50,13 +50,18 @@ class PhotoWindow(QMainWindow):
 
     def on_new_panorama(self, path, yaw, pitch, roll):
         """Charge une image panoramique avec une superposition de chargement sur le widget GL"""
+        """Charge une image panoramique avec une superposition de chargement sur le widget GL."""
+        if getattr(self, "_loading_panorama", False):
+            return
+        self._loading_panorama = True
         overlay = show_overlay(self.gl_widget, "Chargement de la photo…")
         QApplication.processEvents()
-        self.gl_widget.load_image(path, yaw, pitch, roll)
-        for _ in range(4):
+        try:
+            self.gl_widget.load_image(path, yaw, pitch, roll)
             QApplication.processEvents()
-        overlay.hide()
-        overlay.deleteLater()
+        finally:
+            self._loading_panorama = False
+            overlay.dismiss()
 
     def change_site(self, photo_info, tree_info, photo_dir):
         """Réinitialise la fenêtre pour un nouveau site (données + carte + propriétés + panorama)."""

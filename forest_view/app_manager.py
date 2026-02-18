@@ -89,8 +89,7 @@ class AppManager(QObject):
         )
         QApplication.processEvents()
 
-        overlay.hide()
-        overlay.deleteLater()
+        overlay.dismiss()
         self.photo_window.show()
 
     def change_site(self):
@@ -136,7 +135,5 @@ class AppManager(QObject):
         )
         QApplication.processEvents()
 
-        overlay.hide()
-        overlay.deleteLater()
         print('Nouveau site chargé')
         logger.info('Nouveau site chargé')
