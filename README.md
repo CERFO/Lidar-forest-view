@@ -3,17 +3,17 @@ Utilitaire de visualisation simultanée de données lidar, photo et cartographiq
 
 ## Entrées au lancement
 
-À l’ouverture, l’app demande **un répertoire de projet** (formulaire). Tous les chemins ci‑dessous sont soit ce dossier, soit relatifs à lui (sauf `memory.json`).
+À l’ouverture, l’app demande **un répertoire de projet** (formulaire). Tous les chemins ci‑dessous sont soit ce dossier, soit relatifs à lui (sauf `appsettings.json`). Pour le **type et le format** de chaque entrée (fichier / répertoire), voir [docs/formats_entrees.md](docs/formats_entrees.md).
 
 | Entrée | Où | Description |
 |--------|-----|-------------|
-| **Répertoire de projet** | Saisi au lancement | Dossier du projet. Peut être mémorisé dans `memory.json` (répertoire courant). |
+| **Répertoire de projet** | Saisi au lancement | Dossier du projet. Peut être mémorisé dans `appsettings.json` (répertoire courant). |
 | **`photo_info.csv`** | Dans le projet | CSV : `image`, `x`, `y`, `z` ; optionnel `yaw`, `pitch`, `roll`. Sinon : pas de points photo ni panorama. |
 | **`tree_info.csv`** | Dans le projet | CSV : `x`, `y`, `z`, `No_tige` + autres colonnes (propriétés). Sinon : pas de points arbre. |
 | **`panoramas/`** | Dans le projet | Dossier d'images ; noms = colonne `image` de `photo_info.csv` (ex. `pano0001.jpg`). |
 | **`cloud.laz`** | Dans le projet | Nuage lidar principal. Sinon : console + vue 3D vide. |
 | **`aero_cloud.laz`** | Dans le projet | Second nuage (ex. aéroporté). Sinon : message console. |
-| **`memory.json`** | Répertoire courant | Pré-remplit le dernier répertoire projet ; mis à jour à chaque soumission. |
+| **`appsettings.json`** | Répertoire courant | Pré-remplit le dernier répertoire projet ; mis à jour à chaque soumission. |
 
 ### Structure de projet canonique
 
@@ -68,7 +68,7 @@ Le projet est organisé en package Python `forest_view/` pour faciliter le trava
 | **`app_manager.py`** | Orchestration : affiche le formulaire de choix du répertoire projet, charge `photo_info.csv` et `tree_info.csv`, crée `PhotoWindow` et `LidarWindow`, connecte les signaux entre fenêtres, charge les nuages lidar (`cloud.laz`, `aero_cloud.laz`) et les arbres. Gère aussi le changement de site. |
 | **`io.py`** | Lecture/écriture fichiers : `readCSV`, `CSV_to_dict`, `writeCSV`, `readJSON`, `writeJSON`, `export_photo_info_to_csv`. Utilisé par l’app, le project maker et les scripts dans `scripts/`. |
 | **`photo_pipeline.py`** | Traitement des photos : `get_valid_pairs`, `stitch_photos` (Hugin), `get_photo_locations`, `quaternion_to_euler`. Utilisé par les scripts dans `scripts/`. |
-| **`forms.py`** | Formulaire de saisie de chemins : classe `DataForm` (fichier/répertoire, mémorisation dans `memory.json`). |
+| **`forms.py`** | Formulaire de saisie de chemins : classe `DataForm` (fichier/répertoire, mémorisation dans `appsettings.json`). |
 
 ### Sous-package `forest_view/widgets/`
 

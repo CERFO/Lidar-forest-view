@@ -41,7 +41,7 @@ class DataForm(QDialog):
 
         self.fields = {}
         self.paths = {}
-        self.memory = readJSON('memory.json') if os.path.exists('memory.json') else {}
+        self.memory = readJSON('appsettings.json') if os.path.exists('appsettings.json') else {}
         self._instant_tooltip = {}  # id(widget) -> help text, for instant show on hover
 
         _hints_path = os.path.join(os.path.dirname(__file__), 'field_hints.json')
@@ -107,13 +107,13 @@ class DataForm(QDialog):
             line_edit.setText(file_path)
 
     def submit_data(self):
-        """Valide les champs, enregistre dans self.paths et self.memory, écrit memory.json."""
+        """Valide les champs, enregistre dans self.paths et self.memory, écrit appsettings.json."""
         self.paths.clear()
         if all(value.text() != '' for value in self.fields.values()):
             for field_name, line_edit in self.fields.items():
                 self.paths[field_name] = line_edit.text()
                 self.memory[field_name] = line_edit.text()
-            writeJSON('memory.json', self.memory)
+            writeJSON('appsettings.json', self.memory)
             self.close()
         else:
             QMessageBox.warning(

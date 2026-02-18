@@ -310,7 +310,7 @@ class ScanForm(QDialog):
 
         self.setWindowFlags(self.windowFlags() | Qt.WindowType.WindowStaysOnTopHint | Qt.WindowType.Dialog)
 
-        self.memory = readJSON('memory.json') if os.path.exists('memory.json') else {}
+        self.memory = readJSON('appsettings.json') if os.path.exists('appsettings.json') else {}
 
         self.layout = QFormLayout()
         self._help_info_labels = []  # liste de (info_label, help_by_type)
@@ -415,7 +415,7 @@ class ScanForm(QDialog):
                     self.memory[item.field] = item.line_edit.text()
                 else:
                     self.memory.update({item.field: item.line_edit.text()})
-        writeJSON('memory.json', self.memory)
+        writeJSON('appsettings.json', self.memory)
         self.close()
 
     def get_info(self):

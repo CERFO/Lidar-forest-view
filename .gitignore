@@ -218,5 +218,6 @@ __marimo__/
 
 # Custom / Project specific
 log/
-*.json
+projects/
+appsettings.json
 *.pyc
