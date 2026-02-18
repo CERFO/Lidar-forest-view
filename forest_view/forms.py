@@ -1,15 +1,19 @@
 import os
 import sys
 
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QEvent
+from PyQt6.QtGui import QFont, QCursor
 from PyQt6.QtWidgets import (
     QDialog,
     QFileDialog,
     QFormLayout,
     QHBoxLayout,
+    QLabel,
     QLineEdit,
     QMessageBox,
     QPushButton,
+    QToolTip,
+    QWidget,
 )
 
 from forest_view.io import readJSON, writeJSON
@@ -20,37 +24,76 @@ class DataForm(QDialog):
     Formulaire de saisie de chemins d'accès vers des fichiers ou des répertoires.
 
     Args:
-        fields (list): Liste de tuples (texte du label, nom du champ, type: 'file' ou 'répertoire').
+        fields (list): Liste de tuples (texte du label, nom du champ, type).
+            type: 'file' ou 'répertoire'. L'aide (tooltip ⓘ) est chargée depuis
+            forest_view/field_hints.json selon le nom du champ.
         title (str): Titre de la fenêtre du formulaire.
     """
     def __init__(self, fields, title="Saisie des chemins d'accès"):
         super().__init__()
         self.setWindowTitle(title)
-        self.setWindowFlags(self.windowFlags() | Qt.WindowType.WindowStaysOnTopHint | Qt.WindowType.Dialog)
+        self.setWindowFlags(
+            self.windowFlags()
+            | Qt.WindowType.WindowStaysOnTopHint
+            | Qt.WindowType.Dialog
+            | Qt.WindowType.WindowCloseButtonHint
+        )
 
         self.fields = {}
         self.paths = {}
         self.memory = readJSON('memory.json') if os.path.exists('memory.json') else {}
+        self._instant_tooltip = {}  # id(widget) -> help text, for instant show on hover
+
+        _hints_path = os.path.join(os.path.dirname(__file__), 'field_hints.json')
+        self._field_hints = readJSON(_hints_path) if os.path.exists(_hints_path) else {}
 
         self.layout = QFormLayout()
-        for text, field, path_type in fields:
-            self.add_field(text, field, path_type)
+        for item in fields:
+            text, field_name, path_type = item[0], item[1], item[2]
+            help_text = self._field_hints.get(field_name)
+            self.add_field(text, field_name, path_type, help_text)
 
         self.submit_button = QPushButton("Soumettre")
         self.submit_button.clicked.connect(self.submit_data)
         self.layout.addRow(self.submit_button)
         self.setLayout(self.layout)
 
-    def add_field(self, label_text, field_name, path_type):
-        """Ajoute un champ de saisie avec label et bouton Parcourir."""
+    def add_field(self, label_text, field_name, path_type, help_text=None):
+        """Ajoute un champ de saisie avec label, optionnellement une infobulle au survol, et bouton Parcourir."""
+        label_widget = QWidget()
+        label_layout = QHBoxLayout(label_widget)
+        label_layout.setContentsMargins(0, 0, 0, 0)
+        label_layout.setSpacing(4)
+        lbl = QLabel(label_text)
+        label_layout.addWidget(lbl)
+        if help_text:
+            info = QLabel("ⓘ")
+            info.setToolTip(help_text)
+            info.setCursor(Qt.CursorShape.WhatsThisCursor)
+            font = QFont(info.font())
+            font.setPointSize(font.pointSize() - 1)
+            info.setFont(font)
+            info.setStyleSheet("")  # use theme text color (white on dark, black on light)
+            self._instant_tooltip[id(info)] = help_text
+            info.installEventFilter(self)
+            label_layout.addWidget(info)
+        label_layout.addStretch()
+
         inner_layout = QHBoxLayout()
         line_edit = QLineEdit(text=self.memory.get(field_name, ''))
         browse_button = QPushButton("Browse")
         browse_button.clicked.connect(lambda checked, le=line_edit: self.browse_file(le, label_text, path_type))
         inner_layout.addWidget(line_edit)
         inner_layout.addWidget(browse_button)
-        self.layout.addRow(label_text, inner_layout)
+        self.layout.addRow(label_widget, inner_layout)
         self.fields[field_name] = line_edit
+
+    def eventFilter(self, obj, event):
+        if event.type() == QEvent.Type.Enter and id(obj) in self._instant_tooltip:
+            QToolTip.showText(QCursor.pos(), self._instant_tooltip[id(obj)])
+        elif event.type() == QEvent.Type.Leave and id(obj) in self._instant_tooltip:
+            QToolTip.hideText()
+        return super().eventFilter(obj, event)
 
     def browse_file(self, line_edit, caption, path_type):
         """Ouvre une boîte de dialogue pour sélectionner un fichier ou un répertoire."""
