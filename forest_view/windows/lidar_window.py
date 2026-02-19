@@ -32,10 +32,9 @@ class LidarWindow(QMainWindow):
         self.view_depth = 15
 
         self.plotter.enable_point_picking(
-            callback=self.point_picked, color='yellow', point_size=30, show_message=False
+            callback=self.on_lidar_selected_tree, show_point=False, show_message=False
         )
         self.plotter.enable_eye_dome_lighting()
-        self.plotter.enable_fly_to_right_click()
         self.plotter.add_on_render_callback(self.on_render)
 
     def load_point_cloud(self, point_cloud_path, actor_name):
@@ -81,6 +80,8 @@ class LidarWindow(QMainWindow):
             self.camera_parameters[0] = list(centered_position)
             self.plotter.camera_position = self.camera_parameters
             self._update_render_view_depth(self.view_depth)
+        else:
+            pass
 
     def update_camera_direction(self, camera_direction):
         if camera_direction[2] == 1:
@@ -114,9 +115,18 @@ class LidarWindow(QMainWindow):
                 self.plotter.interactor.setCursor(cursor)
         return super().eventFilter(obj, event)
 
-    def point_picked(self, picked_point):
+    def on_lidar_selected_tree(self, picked_point):
+        if 'selection_point' in self.plotter.actors.keys():
+            self.plotter.remove_actor('selected_point')
+        self.plotter.add_mesh(picked_point, name='selected_point', point_size=30, color='yellow')
         picked_point = np.array(picked_point) + self.translation
         self.lidar_tree_selected.emit(picked_point)
+        
+    def on_map_selected_tree(self, tree_position):
+        if 'selection_point' in self.plotter.actors.keys():
+            self.plotter.remove_actor('selected_point')
+        tree_position = tree_position - self.translation
+        self.plotter.add_mesh(tree_position, name='selected_point', point_size=30, color='yellow')
 
     def change_site(self, cloud_path, tree_info):
         self.reset()

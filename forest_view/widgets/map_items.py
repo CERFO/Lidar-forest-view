@@ -54,10 +54,11 @@ class TreePoint(QGraphicsEllipseItem):
         parent: CustomMapWidget.
         size (int): Taille du point.
     """
-    def __init__(self, x, y, tree_data, parent=None, size=10):
+    def __init__(self, x, y, z, tree_data, parent=None, size=10):
         super().__init__(-size / 2, -size / 2, size, size)
         self.setBrush(Qt.GlobalColor.green)
         self.setPos(x, y)
+        self.z = z
         self.setCursor(Qt.CursorShape.ArrowCursor)
         self.setFlags(
             QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations
@@ -73,6 +74,9 @@ class TreePoint(QGraphicsEllipseItem):
     def mousePressEvent(self, event):
         if self.parent and hasattr(self.parent, 'new_tree_attributes'):
             self.parent.new_tree_attributes.emit(self.tree_data)
+        if self.parent and hasattr(self.parent, 'map_tree_selected'):
+            tree_position = np.array([self.pos().x(), -self.pos().y(), self.z])
+            self.parent.map_tree_selected.emit(tree_position)
         super().mousePressEvent(event)
 
     def paint(self, painter, option, widget=None):

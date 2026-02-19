@@ -33,6 +33,7 @@ class CustomMapWidget(QGraphicsView):
     new_pointer_position = pyqtSignal(object)
     new_panorama = pyqtSignal(str, float, float, float)
     new_tree_attributes = pyqtSignal(object)
+    map_tree_selected = pyqtSignal(object)
 
     def __init__(self, photo_coordinates, tree_coordinates=None):
         super().__init__()
@@ -74,10 +75,12 @@ class CustomMapWidget(QGraphicsView):
         if not tree_coordinates:
             return
         for entry in tree_coordinates:
-            scene_x = float(entry['x'])
-            scene_y = -float(entry['y'])
+            scene_x = float(entry.get('x'))
+            scene_y = -float(entry.get('y'))
+            scene_z = float(entry.get('z'))
+
             tree_data = {k: v for k, v in entry.items() if k not in {'x', 'y', 'z'}}
-            point = TreePoint(scene_x, scene_y, tree_data, self, 10)
+            point = TreePoint(scene_x, scene_y, scene_z, tree_data, self, 10)
             self.scene.addItem(point)
 
     def create_pointer(self):

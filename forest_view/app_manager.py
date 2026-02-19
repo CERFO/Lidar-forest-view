@@ -69,6 +69,9 @@ class AppManager(QObject):
         self.lidar_window.lidar_tree_selected.connect(
             self.photo_window.map_widget.find_point
         )
+        self.photo_window.map_widget.map_tree_selected.connect(
+            self.lidar_window.on_map_selected_tree
+        )
 
         self.lidar_window.show()
         overlay = show_overlay(
