@@ -116,17 +116,22 @@ class LidarWindow(QMainWindow):
         return super().eventFilter(obj, event)
 
     def on_lidar_selected_tree(self, picked_point):
-        if 'selection_point' in self.plotter.actors.keys():
+        if 'selected_point' in self.plotter.actors.keys():
             self.plotter.remove_actor('selected_point')
         self.plotter.add_mesh(picked_point, name='selected_point', point_size=30, color='yellow')
         picked_point = np.array(picked_point) + self.translation
         self.lidar_tree_selected.emit(picked_point)
         
     def on_map_selected_tree(self, tree_position):
-        if 'selection_point' in self.plotter.actors.keys():
+        if 'selected_point' in self.plotter.actors.keys():
             self.plotter.remove_actor('selected_point')
         tree_position = tree_position - self.translation
         self.plotter.add_mesh(tree_position, name='selected_point', point_size=30, color='yellow')
+        actors = self.plotter.actors
+        point = actors.get('selected_point')
+        mapper = point.mapper
+        center = mapper.center
+        print(center)
 
     def change_site(self, cloud_path, tree_info):
         self.reset()
