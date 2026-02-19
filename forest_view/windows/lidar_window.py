@@ -127,11 +127,6 @@ class LidarWindow(QMainWindow):
             self.plotter.remove_actor('selected_point')
         tree_position = tree_position - self.translation
         self.plotter.add_mesh(tree_position, name='selected_point', point_size=30, color='yellow')
-        actors = self.plotter.actors
-        point = actors.get('selected_point')
-        mapper = point.mapper
-        center = mapper.center
-        print(center)
 
     def change_site(self, cloud_path, tree_info):
         self.reset()
