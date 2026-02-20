@@ -53,6 +53,9 @@ class GLWidget(QOpenGLWidget):
     new_camera_direction = pyqtSignal(object)
     new_pointer_direction = pyqtSignal(float)
     texture_pending = False
+    selected_photo_coords = None
+    selected_tree_coords = None
+    tree_focused = False
 
     def __init__(self, parent, photo_dir):
         super().__init__(parent)
@@ -169,12 +172,49 @@ class GLWidget(QOpenGLWidget):
         self.projection.setToIdentity()
         self.projection.perspective(self.fov, width / height, 0.1, 1000.0)
 
+    def set_tree_focus(self, state):
+        if state == Qt.Checked:
+            self.tree_focused = True
+        else:
+            self.tree_focused = False
+
+    def on_tree_selection(self, tree_coords):
+        self.selected_tree_coords = tree_coords
+
+    def on_photo_selection(self, photo_coords):
+        prev_photo_coords = self.selected_photo_coords
+        self.selected_photo_coords = photo_coords
+
+        if (self.tree_focused 
+            and self.selected_tree_coords is not None 
+            and prev_photo_coords is not None):
+
+            old_v = self.selected_tree_coords -  prev_photo_coords
+            v = self.selected_tree_coords -  self.selected_photo_coords
+            aimed_z = prev_photo_coords[2] - math.tan(math.radians(self.pitch)) * math.sqrt(old_v[0]**2 + old_v[1]**2)
+
+            yaw = math.atan(v[0]/v[1]) if v[1] > 0 else math.atan(v[0]/v[1]) + math.pi
+            pitch = -math.atan((aimed_z - self.selected_photo_coords[2])/math.sqrt(v[0]**2 + v[1]**2))
+
+            self.yaw = math.degrees(yaw)
+            self.pitch = math.degrees(pitch)
+            self.new_pointer_direction.emit(math.degrees(yaw))
+
+            camera_direction = np.array([
+                math.cos(pitch) * math.sin(yaw),
+                math.cos(pitch) * math.cos(yaw),
+                -math.sin(pitch)
+            ])
+            self.new_camera_direction.emit(camera_direction)
+
     def reset(self):
         self.yaw = 0
         self.pitch = 0
         self.image_roll = 0
         self.load_image(None)
         self.photo_dir = None
+        self.selected_photo_coords = None
+        self.selected_tree_coords = None
 
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:

@@ -1,10 +1,14 @@
-from PyQt6.QtCore import Qt, QMarginsF
+import math
+import numpy as np
+
+from PyQt6.QtCore import Qt, QMarginsF, pyqtSignal
 from PyQt6.QtWidgets import (
     QApplication,
     QGroupBox,
     QHBoxLayout,
     QMainWindow,
     QPushButton,
+    QCheckBox,
     QVBoxLayout,
     QWidget,
 )
@@ -26,13 +30,15 @@ class PhotoWindow(QMainWindow):
             self.propriety_widget = ProprietyWidget(
                 [k for k in tree_info[0].keys() if k not in {'x', 'y', 'z'}]
             )
-        self.change_button = QPushButton('Changer de site')
+        self.change_button = QPushButton('Changer de site', self)
+        self.tree_focus_box = QCheckBox('Verouiller la vue à l\'arbre', self)
 
         propriety_box = QGroupBox('Propriétés')
         propriety_box_layout = QVBoxLayout()
         propriety_box_layout.setContentsMargins(1, 0, 1, 1)
         propriety_box_layout.setSpacing(0)
         propriety_box_layout.addWidget(self.propriety_widget)
+        propriety_box_layout.addWidget(self.tree_focus_box)
         propriety_box.setLayout(propriety_box_layout)
 
         right_layout = QVBoxLayout()

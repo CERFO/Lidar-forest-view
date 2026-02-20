@@ -51,6 +51,9 @@ class AppManager(QObject):
         self.lidar_window = LidarWindow()
 
         self.photo_window.change_button.clicked.connect(self.change_site)
+        self.photo_window.tree_focus_box.checkStateChanged.connect(
+            self.photo_window.gl_widget.set_tree_focus
+        )
         self.photo_window.gl_widget.new_camera_direction.connect(
             self.lidar_window.update_camera_direction
         )
@@ -59,6 +62,9 @@ class AppManager(QObject):
         )
         self.photo_window.map_widget.new_camera_position.connect(
             self.lidar_window.update_camera_position
+        )
+        self.photo_window.map_widget.new_camera_position.connect(
+            self.photo_window.gl_widget.on_photo_selection
         )
         self.photo_window.map_widget.new_panorama.connect(
             self.photo_window.gl_widget.load_image
@@ -69,8 +75,14 @@ class AppManager(QObject):
         self.lidar_window.lidar_tree_selected.connect(
             self.photo_window.map_widget.find_point
         )
+        self.lidar_window.lidar_tree_selected.connect(
+            self.photo_window.gl_widget.on_tree_selection
+        )
         self.photo_window.map_widget.map_tree_selected.connect(
             self.lidar_window.on_map_selected_tree
+        )
+        self.photo_window.map_widget.map_tree_selected.connect(
+            self.photo_window.gl_widget.on_tree_selection
         )
 
         self.lidar_window.show()
