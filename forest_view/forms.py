@@ -114,6 +114,7 @@ class DataForm(QDialog):
                 self.paths[field_name] = line_edit.text()
                 self.memory[field_name] = line_edit.text()
             writeJSON('appsettings.json', self.memory)
+            self.accept()
             self.close()
         else:
             QMessageBox.warning(
@@ -122,7 +123,7 @@ class DataForm(QDialog):
             )
 
     def closeEvent(self, event):
-        """Gère la fermeture par le X : quitte l'app si aucun chemin valide."""
+        """Gère la fermeture par le X : quitte l'app si aucun chemin valide (sauf en mode « Changer de site »)."""
         if getattr(self, '_change_site_context', False):
             event.accept()
             return

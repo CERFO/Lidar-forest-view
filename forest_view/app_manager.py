@@ -118,4 +118,7 @@ class AppManager(QObject):
         self.form.show()
         self.form.raise_()
         self.form.activateWindow()
+        result = self.form.exec()
+        if result != QDialog.DialogCode.Accepted:
+            return
         self._open_navigation()
