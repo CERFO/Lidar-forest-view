@@ -123,6 +123,9 @@ class DataForm(QDialog):
 
     def closeEvent(self, event):
         """Gère la fermeture par le X : quitte l'app si aucun chemin valide."""
+        if getattr(self, '_change_site_context', False):
+            event.accept()
+            return
         if self.paths and all(value != '' for value in self.paths.values()):
             event.accept()
         else:

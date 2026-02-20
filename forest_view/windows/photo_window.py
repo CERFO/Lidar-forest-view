@@ -120,4 +120,5 @@ class PhotoWindow(QMainWindow):
 
     def closeEvent(self, event):
         super().closeEvent(event)
-        QApplication.quit()
+        if not getattr(self, '_returning_to_project_selection', False):
+            QApplication.quit()

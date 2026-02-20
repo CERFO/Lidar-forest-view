@@ -110,6 +110,10 @@ class AppManager(QObject):
         if mb.clickedButton() != oui:
             return
 
+        self.photo_window._returning_to_project_selection = True
+        self.lidar_window._returning_to_project_selection = True
+        self.lidar_window.close()
+        self.photo_window.close()
 
         self.form.show()
         self.form.raise_()

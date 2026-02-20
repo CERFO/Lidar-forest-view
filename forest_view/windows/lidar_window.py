@@ -143,4 +143,5 @@ class LidarWindow(QMainWindow):
     def closeEvent(self, event):
         self.plotter.close()
         super().closeEvent(event)
-        QApplication.quit()
+        if not getattr(self, '_returning_to_project_selection', False):
+            QApplication.quit()
