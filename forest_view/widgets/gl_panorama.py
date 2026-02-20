@@ -175,6 +175,7 @@ class GLWidget(QOpenGLWidget):
     def set_tree_focus(self, state):
         if state == Qt.Checked:
             self.tree_focused = True
+            self.focus_on_tree()
         else:
             self.tree_focused = False
 
@@ -186,48 +187,43 @@ class GLWidget(QOpenGLWidget):
             and self.selected_tree_coords is not None
             and self.selected_photo_coords is not None):
 
-            v = self.selected_tree_coords -  self.selected_photo_coords
-            yaw = math.atan(v[0]/v[1]) if v[1] > 0 else math.atan(v[0]/v[1]) + math.pi
-
             if prev_tree_coords is None:
-                pitch = math.radians(self.pitch)
+                self.focus_on_tree()
             else:
                 old_v = prev_tree_coords - self.selected_photo_coords
-                aimed_z = self.selected_photo_coords[2] - math.tan(math.radians(self.pitch)) * math.sqrt(old_v[0]**2 + old_v[1]**2)
-                pitch = -math.atan((aimed_z - self.selected_photo_coords[2])/math.sqrt(v[0]**2 + v[1]**2))
-
-            self.yaw = math.degrees(yaw)
-            self.pitch = math.degrees(pitch)
-            self.update()
-            self.new_pointer_direction.emit(math.degrees(yaw))
-            
-            camera_direction = np.array([
-                math.cos(pitch) * math.sin(yaw),
-                math.cos(pitch) * math.cos(yaw),
-                -math.sin(pitch)
-            ])
-            self.new_camera_direction.emit(camera_direction)
+                aimed_z = self.selected_photo_coords[2] - math.tan(math.radians(self.pitch))* math.sqrt(old_v[0]**2 + old_v[1]**2)
+                self.focus_on_tree(aimed_z)
 
     def on_photo_selection(self, photo_coords):
         prev_photo_coords = self.selected_photo_coords
         self.selected_photo_coords = photo_coords
 
-        if (self.tree_focused 
+        if (self.tree_focused
             and self.selected_tree_coords is not None 
+            and self.selected_photo_coords is not None):
+
+            if prev_photo_coords is None:
+                self.focus_on_tree()
+            else:
+                old_v = self.selected_tree_coords -  prev_photo_coords
+                aimed_z = prev_photo_coords[2] - math.tan(math.radians(self.pitch)) * math.sqrt(old_v[0]**2 + old_v[1]**2)
+                self.focus_on_tree(aimed_z)
+
+    def focus_on_tree(self, aimed_z = None):
+        if (self.selected_tree_coords is not None 
             and self.selected_photo_coords is not None):
 
             v = self.selected_tree_coords -  self.selected_photo_coords
             yaw = math.atan(v[0]/v[1]) if v[1] > 0 else math.atan(v[0]/v[1]) + math.pi
-
-            if prev_photo_coords is None:
-                pitch = 0
-            else:
-                old_v = self.selected_tree_coords -  prev_photo_coords
-                aimed_z = prev_photo_coords[2] - math.tan(math.radians(self.pitch)) * math.sqrt(old_v[0]**2 + old_v[1]**2)
-                pitch = -math.atan((aimed_z - self.selected_photo_coords[2])/math.sqrt(v[0]**2 + v[1]**2))
-
             self.yaw = math.degrees(yaw)
-            self.pitch = math.degrees(pitch)
+
+            if aimed_z is None:
+                pitch = math.radians(self.pitch)
+            else:
+                pitch = -math.atan((aimed_z - self.selected_photo_coords[2])/math.sqrt(v[0]**2 + v[1]**2))
+                self.pitch = math.degrees(pitch)
+
+            self.update()
             self.new_pointer_direction.emit(math.degrees(yaw))
 
             camera_direction = np.array([
@@ -236,6 +232,8 @@ class GLWidget(QOpenGLWidget):
                 -math.sin(pitch)
             ])
             self.new_camera_direction.emit(camera_direction)
+        else:
+            pass
 
     def reset(self):
         self.yaw = 0
