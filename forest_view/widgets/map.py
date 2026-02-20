@@ -38,7 +38,7 @@ class CustomMapWidget(QGraphicsView):
     def __init__(self, photo_coordinates, tree_coordinates=None):
         super().__init__()
         self.last_selection = []
-        self.scene = QGraphicsScene()
+        self.scene = QGraphicsScene(self)
         self.scene.selectionChanged.connect(self.on_selection_change)
         self.setScene(self.scene)
         self.setMinimumSize(100, 100)
