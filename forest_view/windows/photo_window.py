@@ -1,7 +1,4 @@
-import math
-import numpy as np
-
-from PyQt6.QtCore import Qt, QMarginsF, pyqtSignal
+from PyQt6.QtCore import Qt, QMarginsF
 from PyQt6.QtWidgets import (
     QApplication,
     QGroupBox,
