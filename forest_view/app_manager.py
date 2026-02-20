@@ -16,7 +16,7 @@ class AppManager(QObject):
     def __init__(self):
         super().__init__()
         self.form = DataForm([
-            ['Répertoire de projet', 'project_dir', 'répertoire'],
+            ['Répertoire du projet', 'project_dir', 'répertoire'],
         ])
         self.form.exec()
         self._open_navigation()

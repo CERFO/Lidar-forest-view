@@ -34,6 +34,8 @@ def _empty_photo_placeholder():
 
 
 class PhotoWindow(QMainWindow):
+    """Fenêtre principale de l'outil de navigation (panorama + carte + propriétés)."""
+
     def __init__(self, photo_info, tree_info, photo_dir):
         super().__init__()
         self.setWindowTitle("UdeS Forest View")
@@ -67,14 +69,16 @@ class PhotoWindow(QMainWindow):
         propriety_box_layout.addWidget(self.propriety_widget)
         propriety_box.setLayout(propriety_box_layout)
 
-        right_layout = QVBoxLayout()
+        right_column = QWidget()
+        right_layout = QVBoxLayout(right_column)
+        right_layout.setContentsMargins(0, 0, 0, 0)
         right_layout.addWidget(propriety_box, 2)
         right_layout.addWidget(self.map_widget, 3)
-        right_layout.addWidget(self.change_button)
+        right_layout.addWidget(self.change_button, 0)
 
         main_layout = QHBoxLayout()
         main_layout.addWidget(photo_container, 3)
-        main_layout.addLayout(right_layout, 1)
+        main_layout.addWidget(right_column, 1)
 
         central_widget = QWidget()
         central_widget.setLayout(main_layout)
