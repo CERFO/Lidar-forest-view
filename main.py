@@ -47,14 +47,16 @@ def main():
     btn_project.clicked.connect(lambda: run_tool(dialog, "project_maker"))
     layout.addWidget(btn_project)
 
-    buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Cancel)
+    buttons = QDialogButtonBox()
+    buttons.addButton("Fermer", QDialogButtonBox.ButtonRole.RejectRole)
     buttons.rejected.connect(dialog.reject)
-    buttons.rejected.connect(app.quit)
     layout.addWidget(buttons)
 
     dialog.setMinimumWidth(320)
-    dialog.exec()
+    result = dialog.exec()
 
+    if result == QDialog.DialogCode.Rejected:
+        sys.exit(0)
     sys.exit(app.exec() if app.thread() else 0)
 
 
