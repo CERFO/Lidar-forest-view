@@ -53,7 +53,7 @@ class AppManager(QObject):
         )
         self.lidar_window = LidarWindow()
 
-        self.photo_window.change_button.clicked.connect(self.change_site)
+        self.photo_window.on_change_site_requested = self.change_site
         self.photo_window.gl_widget.new_camera_direction.connect(
             self.lidar_window.update_camera_direction
         )

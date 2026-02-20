@@ -38,6 +38,7 @@ class PhotoWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("UdeS Forest View")
         self.setGeometry(300, 300, 800, 600)
+        self.on_change_site_requested = None  # callback set by AppManager
 
         self.gl_widget = GLWidget(self, photo_dir)
         self._photo_stack = QStackedLayout()
@@ -56,6 +57,8 @@ class PhotoWindow(QMainWindow):
                 [k for k in tree_info[0].keys() if k not in {'x', 'y', 'z'}]
             )
         self.change_button = QPushButton('Changer de site')
+        self.change_button.setMinimumHeight(40)
+        self.change_button.clicked.connect(self._on_change_site_clicked)
 
         propriety_box = QGroupBox('Propriétés')
         propriety_box_layout = QVBoxLayout()
@@ -80,6 +83,10 @@ class PhotoWindow(QMainWindow):
     def _on_panorama_selected(self, image_path, image_yaw, image_pitch, image_roll):
         if image_path:
             self._photo_stack.setCurrentIndex(0)
+
+    def _on_change_site_clicked(self):
+        if callable(self.on_change_site_requested):
+            self.on_change_site_requested()
 
     def change_site(self, photo_info, tree_info, photo_dir):
         """Réinitialise la fenêtre pour un nouveau site (données + carte + propriétés + panorama)."""
