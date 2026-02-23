@@ -53,7 +53,7 @@ class AppManager(QObject):
         )
         self.lidar_window = LidarWindow()
 
-        self.photo_window.change_button.clicked.connect(self.change_site)
+        self.photo_window.on_change_site_requested = self.change_site
         self.photo_window.tree_focus_box.checkStateChanged.connect(
             self.photo_window.gl_widget.set_tree_focus
         )
@@ -126,7 +126,7 @@ class AppManager(QObject):
         self.lidar_window._returning_to_project_selection = True
         self.lidar_window.close()
         self.photo_window.close()
-
+        self.form._change_site_context = True
         self.form.show()
         self.form.raise_()
         self.form.activateWindow()

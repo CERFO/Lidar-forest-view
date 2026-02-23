@@ -59,10 +59,11 @@ class PhotoWindow(QMainWindow):
             self.propriety_widget = ProprietyWidget(
                 [k for k in tree_info[0].keys() if k not in {'x', 'y', 'z'}]
             )
+        self.tree_focus_box = QCheckBox('Verouiller la vue à l\'arbre', self)
+
         self.change_button = QPushButton('Changer de site', self)
         self.change_button.setMinimumHeight(40)
         self.change_button.clicked.connect(self._on_change_site_clicked)
-        self.tree_focus_box = QCheckBox('Verouiller la vue à l\'arbre', self)
 
         propriety_box = QGroupBox('Propriétés')
         propriety_box_layout = QVBoxLayout()
