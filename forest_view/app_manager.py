@@ -1,7 +1,7 @@
 import os
 
 from PyQt6.QtCore import QObject
-from PyQt6.QtWidgets import QApplication, QMessageBox
+from PyQt6.QtWidgets import QApplication, QDialog, QMessageBox
 
 from forest_view.forms import DataForm
 from forest_view.io import CSV_to_dict
@@ -16,10 +16,13 @@ class AppManager(QObject):
     def __init__(self):
         super().__init__()
         self.form = DataForm([
-            ['Répertoire de projet', 'project_dir', 'répertoire'],
+            ['Répertoire du projet', 'project_dir', 'répertoire'],
         ])
         self.form.exec()
+        self._open_navigation()
 
+    def _open_navigation(self):
+        """Charge les données du projet et ouvre les fenêtres photo + lidar."""
         try:
             self.photo_info = CSV_to_dict(
                 os.path.join(self.form.paths['project_dir'], 'photo_info.csv'), ','
@@ -108,48 +111,26 @@ class AppManager(QObject):
         self.photo_window.show()
 
     def change_site(self):
-        """Demande un nouveau répertoire de projet et recharge les données et fenêtres."""
-        self.form.exec()
-        try:
-            self.photo_info = CSV_to_dict(
-                os.path.join(self.form.paths['project_dir'], 'photo_info.csv'), ','
-            )
-        except FileNotFoundError:
-            QMessageBox.warning(
-                None, 'Avertissement',
-                'Le fichier photo_info.csv est introuvable dans le répertoire du projet. '
-                'Les données de photos ne seront pas affichées.'
-            )
-            self.photo_info = None
-        try:
-            self.tree_info = CSV_to_dict(
-                os.path.join(self.form.paths['project_dir'], 'tree_info.csv'), ','
-            )
-        except FileNotFoundError:
-            QMessageBox.warning(
-                None, 'Avertissement',
-                'Le fichier tree_info.csv est introuvable dans le répertoire du projet. '
-                'Les données d\'arbre ne seront pas affichées.'
-            )
-            self.tree_info = None
+        """Demande confirmation, ferme les fenêtres de navigation et retourne au choix du projet."""
+        mb = QMessageBox(self.photo_window)
+        mb.setWindowTitle("Changer de site")
+        mb.setText("Voulez-vous vraiment quitter la navigation ?")
+        oui = mb.addButton("Oui", QMessageBox.ButtonRole.YesRole)
+        non = mb.addButton("Non", QMessageBox.ButtonRole.NoRole)
+        mb.setDefaultButton(non)
+        mb.exec()
+        if mb.clickedButton() != oui:
+            return
 
-        self.photo_window.change_site(
-            self.photo_info, self.tree_info,
-            os.path.join(self.form.paths['project_dir'], 'panoramas')
-        )
+        self.photo_window._returning_to_project_selection = True
+        self.lidar_window._returning_to_project_selection = True
+        self.lidar_window.close()
+        self.photo_window.close()
 
-        overlay = show_overlay(
-            self.lidar_window.centralWidget(),
-            "Chargement des nuages de points…",
-        )
-        QApplication.processEvents()
-
-        self.lidar_window.change_site(
-            os.path.join(self.form.paths['project_dir'], 'cloud.laz'),
-            self.tree_info
-        )
-        QApplication.processEvents()
-
-        overlay.dismiss()
-        print('Nouveau site chargé')
-        logger.info('Nouveau site chargé')
+        self.form.show()
+        self.form.raise_()
+        self.form.activateWindow()
+        result = self.form.exec()
+        if result != QDialog.DialogCode.Accepted:
+            return
+        self._open_navigation()
