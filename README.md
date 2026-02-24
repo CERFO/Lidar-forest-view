@@ -132,6 +132,12 @@ Mettre des images!
 - En appuyant plutôt sur la roue, la position d'observation change
 - La roue gère le zoom.
 - En appuyant sur un point d'arbre avec le bouton droit de la souris, les données de celui-ci s'affichent. Ce point deviendr jaune dans le nuage lidar et sur la carte
+### Verouillage des arbres
+- Pour engager le mode verouillage, cochez la case «**Verouiller la vue à l'arbre**»
+- Si vous avez un arbre sélectionné, celui-ci se centrera dans les vues photo et lidar
+- Le mouvement des photos et du nuage de points sont encore possibles
+- L'arbre sélectionné se recentrera à chaque nouvelle sélection de photo ou d'arbre
+- Pour arrêter le mode verrouillage, décochez la case «Verrouiller la vue à l'arbre»
 ### Changement de site
 - Cliquer sur le bouton à cet effet en bas à droite de la fenêtre photo
 - Sélectionner l'emplacement du dossier du nouveau site dans l'explorateur de données
