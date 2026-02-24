@@ -83,9 +83,9 @@ class LidarWindow(QMainWindow):
         else:
             pass
 
-    def update_camera_direction(self, camera_direction):
+    def update_camera_direction(self, camera_direction, yaw=0):
         if camera_direction[2] == 1:
-            self.camera_parameters[2] = [0, 1, 0]
+            self.camera_parameters[2] = [-math.sin(yaw), -math.cos(yaw), 0]
         else:
             self.camera_parameters[2] = [0, 0, 1]
         self.camera_parameters[1] = list(np.array(self.camera_parameters[0]) + np.array(camera_direction))
