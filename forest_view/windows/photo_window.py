@@ -1,37 +1,16 @@
 from PyQt6.QtCore import Qt, QMarginsF
-from PyQt6.QtGui import QFont
 from PyQt6.QtWidgets import (
     QApplication,
     QGroupBox,
     QHBoxLayout,
-    QLabel,
     QMainWindow,
     QPushButton,
     QCheckBox,
-    QStackedLayout,
     QVBoxLayout,
     QWidget,
 )
 
 from forest_view.widgets import GLWidget, CustomMapWidget, ProprietyWidget
-
-
-def _empty_photo_placeholder():
-    """Widget affiché dans la zone photo lorsqu'aucune image n'est sélectionnée."""
-    widget = QWidget()
-    layout = QVBoxLayout(widget)
-    label = QLabel(
-        "Sélectionnez une photo sur la carte pour commencer à visualiser les panoramas."
-    )
-    label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-    label.setWordWrap(True)
-    font = QFont()
-    font.setPointSize(12)
-    label.setFont(font)
-    label.setStyleSheet("color: #555;")
-    layout.addWidget(label, 0, Qt.AlignmentFlag.AlignCenter)
-    widget.setStyleSheet("background-color: #e8e8e8;")
-    return widget
 
 
 class PhotoWindow(QMainWindow):
@@ -44,15 +23,8 @@ class PhotoWindow(QMainWindow):
         self.on_change_site_requested = None  # callback set by AppManager
 
         self.gl_widget = GLWidget(self, photo_dir)
-        self._photo_stack = QStackedLayout()
-        self._photo_stack.addWidget(self.gl_widget)
-        self._photo_stack.addWidget(_empty_photo_placeholder())
-        self._photo_stack.setCurrentIndex(1)
-        photo_container = QWidget()
-        photo_container.setLayout(self._photo_stack)
 
         self.map_widget = CustomMapWidget(photo_info, tree_info)
-        self.map_widget.new_panorama.connect(self._on_panorama_selected)
         if tree_info is None:
             self.propriety_widget = ProprietyWidget([])
         else:
@@ -81,16 +53,12 @@ class PhotoWindow(QMainWindow):
         right_layout.addWidget(self.change_button, 0)
 
         main_layout = QHBoxLayout()
-        main_layout.addWidget(photo_container, 3)
+        main_layout.addWidget(self.gl_widget, 3)
         main_layout.addWidget(right_column, 1)
 
         central_widget = QWidget()
         central_widget.setLayout(main_layout)
         self.setCentralWidget(central_widget)
-
-    def _on_panorama_selected(self, image_path, image_yaw, image_pitch, image_roll):
-        if image_path:
-            self._photo_stack.setCurrentIndex(0)
 
     def _on_change_site_clicked(self):
         if callable(self.on_change_site_requested):
@@ -124,7 +92,6 @@ class PhotoWindow(QMainWindow):
 
         self.gl_widget.reset()
         self.gl_widget.photo_dir = photo_dir
-        self._photo_stack.setCurrentIndex(1)
 
     def closeEvent(self, event):
         super().closeEvent(event)
