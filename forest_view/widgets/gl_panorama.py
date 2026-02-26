@@ -50,7 +50,7 @@ def _sizeof(ctype):
 
 class GLWidget(QOpenGLWidget):
     """Visionneuse de photos 3D (équirectangulaire) utilisant OpenGL."""
-    new_camera_direction = pyqtSignal(object)
+    new_camera_direction = pyqtSignal(object, float)
     new_pointer_direction = pyqtSignal(float)
     texture_pending = False
     selected_photo_coords = None
@@ -231,7 +231,7 @@ class GLWidget(QOpenGLWidget):
                 math.cos(pitch) * math.cos(yaw),
                 -math.sin(pitch)
             ])
-            self.new_camera_direction.emit(camera_direction)
+            self.new_camera_direction.emit(camera_direction, yaw)
         else:
             pass
 
@@ -263,7 +263,7 @@ class GLWidget(QOpenGLWidget):
                 math.cos(pitch) * math.cos(yaw),
                 -math.sin(pitch)
             ])
-            self.new_camera_direction.emit(camera_direction)
+            self.new_camera_direction.emit(camera_direction, yaw)
 
     def mouseMoveEvent(self, event):
         if self.moving:
