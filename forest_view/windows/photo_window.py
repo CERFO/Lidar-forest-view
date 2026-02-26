@@ -6,11 +6,16 @@ from PyQt6.QtWidgets import (
     QMainWindow,
     QPushButton,
     QCheckBox,
+    QSizePolicy,
     QVBoxLayout,
     QWidget,
 )
 
 from forest_view.widgets import GLWidget, CustomMapWidget, ProprietyWidget
+
+# Panel ouvert : largeur fixe. Bande du bouton flèche.
+SIDE_PANEL_WIDTH = 340
+TOGGLE_STRIP_WIDTH = 28
 
 
 class PhotoWindow(QMainWindow):
@@ -41,24 +46,49 @@ class PhotoWindow(QMainWindow):
         propriety_box_layout = QVBoxLayout()
         propriety_box_layout.setContentsMargins(1, 0, 1, 1)
         propriety_box_layout.setSpacing(0)
-        propriety_box_layout.addWidget(self.propriety_widget)
+        propriety_box_layout.addWidget(self.propriety_widget, 2)
         propriety_box_layout.addWidget(self.tree_focus_box)
         propriety_box.setLayout(propriety_box_layout)
 
-        right_column = QWidget()
-        right_layout = QVBoxLayout(right_column)
+        self.side_panel = QWidget()
+        self.side_panel.setFixedWidth(SIDE_PANEL_WIDTH)
+        side_layout = QVBoxLayout(self.side_panel)
+        side_layout.setContentsMargins(0, 0, 0, 0)
+        side_layout.addWidget(propriety_box, 2)
+        side_layout.addWidget(self.map_widget, 3)
+        side_layout.addWidget(self.change_button, 0)
+        self.side_panel.setVisible(False)
+
+        self.toggle_panel_btn = QPushButton("\u25c0", self)
+        self.toggle_panel_btn.setFixedSize(TOGGLE_STRIP_WIDTH, 80)
+        self.toggle_panel_btn.setToolTip("Ouvrir la carte et les propriétés")
+        self.toggle_panel_btn.clicked.connect(self._toggle_side_panel)
+
+        right_container = QWidget()
+        right_container.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding)
+        right_layout = QHBoxLayout(right_container)
         right_layout.setContentsMargins(0, 0, 0, 0)
-        right_layout.addWidget(propriety_box, 2)
-        right_layout.addWidget(self.map_widget, 3)
-        right_layout.addWidget(self.change_button, 0)
+        right_layout.setSpacing(0)
+        right_layout.addWidget(self.side_panel, 0)
+        right_layout.addWidget(self.toggle_panel_btn, 0)
 
         main_layout = QHBoxLayout()
         main_layout.addWidget(self.gl_widget, 3)
-        main_layout.addWidget(right_column, 1)
+        main_layout.addWidget(right_container, 0)
 
         central_widget = QWidget()
         central_widget.setLayout(main_layout)
         self.setCentralWidget(central_widget)
+
+    def _toggle_side_panel(self):
+        visible = self.side_panel.isVisible()
+        self.side_panel.setVisible(not visible)
+        if visible:
+            self.toggle_panel_btn.setText("\u25c0")
+            self.toggle_panel_btn.setToolTip("Ouvrir la carte et les propriétés")
+        else:
+            self.toggle_panel_btn.setText("\u25b6")
+            self.toggle_panel_btn.setToolTip("Fermer la carte et les propriétés")
 
     def _on_change_site_clicked(self):
         if callable(self.on_change_site_requested):
