@@ -68,31 +68,33 @@ class VerticalLabelPushButton(QPushButton):
 class PhotoWindow(QMainWindow):
     """Fenêtre principale de l'outil de navigation (panorama + carte + propriétés)."""
 
-    def __init__(self, photo_info, tree_info, photo_dir):
+    def __init__(self, photo_info, tree_info, photo_dir, initial_crs_epsg=4326, initial_basemap_id=None):
         super().__init__()
         self.setWindowTitle("UdeS Forest View")
         self.setGeometry(300, 300, 800, 600)
-        self.on_change_site_requested = None  # callback set by AppManager
-
         self.gl_widget = GLWidget(self, photo_dir)
 
-        self.map_widget = CustomMapWidget(photo_info, tree_info)
+        self.map_widget = CustomMapWidget(
+            photo_info, tree_info, crs_epsg=initial_crs_epsg, basemap_id=initial_basemap_id
+        )
         if tree_info is None:
             self.propriety_widget = ProprietyWidget([])
         else:
-            self.propriety_widget = ProprietyWidget(
-                [k for k in tree_info[0].keys() if k not in {'x', 'y', 'z'}]
-            )
+            fields = [k for k in tree_info[0].keys() if k not in {'x', 'y', 'z'}]
+            self.propriety_widget = ProprietyWidget(fields)
+            self.propriety_widget.load_all_data(tree_info)
         self.tree_focus_box = QCheckBox('Verouiller la vue à l\'arbre', self)
-
-        self.change_button = QPushButton('Changer de site', self)
-        self.change_button.setMinimumHeight(40)
-        self.change_button.clicked.connect(self._on_change_site_clicked)
 
         self.filter_selected_only_cb = QCheckBox("Afficher uniquement la ligne sélectionnée", self)
         self.filter_selected_only_cb.setChecked(False)
         self.filter_selected_only_cb.toggled.connect(self.propriety_widget.set_filter_only_selected)
         bottom_options = QWidget()
+        bottom_options_layout = QHBoxLayout(bottom_options)
+        bottom_options_layout.setContentsMargins(0, 4, 0, 0)
+        bottom_options_layout.setSpacing(12)
+        bottom_options_layout.addWidget(self.filter_selected_only_cb)
+        bottom_options_layout.addWidget(self.tree_focus_box)
+        bottom_options_layout.addStretch()
         propriety_box = QGroupBox('Propriétés')
         propriety_box_layout = QVBoxLayout()
         propriety_box_layout.setContentsMargins(1, 0, 1, 1)
@@ -205,35 +207,37 @@ class PhotoWindow(QMainWindow):
         self.bottom_panel.setVisible(not visible)
         self._set_table_button_icon_and_text(open_=not visible)
 
-    def _on_change_site_clicked(self):
-        if callable(self.on_change_site_requested):
-            self.on_change_site_requested()
+    def replot_map(self, photo_info, tree_info, crs_epsg):
+        """Redessine la carte avec le CRS indiqué (sans toucher au panorama ni aux propriétés)."""
+        self.map_widget.set_crs(crs_epsg)
+        self.map_widget.reset()
+        self.gl_widget.new_pointer_direction.connect(self.map_widget.pointer.rotate_pointer)
+        if photo_info:
+            self.map_widget.plot_photo_coordinates(photo_info)
+        if tree_info:
+            self.map_widget.plot_tree_coordinates(tree_info)
+        self.map_widget.add_osm_base_map()
+        if photo_info:
+            self.map_widget.set_pointer_from_data(
+                float(photo_info[0]['x']), float(photo_info[0]['y'])
+            )
+        self.map_widget.fit_extent_to_dataset()
 
     def change_site(self, photo_info, tree_info, photo_dir):
         """Réinitialise la fenêtre pour un nouveau site (données + carte + propriétés + panorama)."""
         self.gl_widget.new_pointer_direction.disconnect()
-        self.map_widget.reset()
-        self.gl_widget.new_pointer_direction.connect(self.map_widget.pointer.rotate_pointer)
-
-        if photo_info is not None:
-            self.map_widget.plot_photo_coordinates(photo_info)
-        if tree_info is not None:
-            self.map_widget.plot_tree_coordinates(tree_info)
-        if photo_info:
-            self.map_widget.pointer.setPos(float(photo_info[0]['x']), -float(photo_info[0]['y']))
-
-        self.map_widget.fitInView(self.map_widget.scene.itemsBoundingRect(), Qt.AspectRatioMode.KeepAspectRatio)
-        self.map_widget.scene.setSceneRect(
-            self.map_widget.scene.itemsBoundingRect().marginsAdded(QMarginsF(10, 10, 10, 10))
-        )
+        crs = getattr(self.map_widget, '_crs_epsg', 4326)
+        self.replot_map(photo_info, tree_info, crs)
 
         self.propriety_widget.reset()
+        self.filter_selected_only_cb.setChecked(False)
         if tree_info is None:
             self.propriety_widget.set_fields([])
         else:
             self.propriety_widget.set_fields(
                 [k for k in tree_info[0].keys() if k not in {'x', 'y', 'z'}]
             )
+            self.propriety_widget.load_all_data(tree_info)
 
         self.gl_widget.reset()
         self.gl_widget.photo_dir = photo_dir

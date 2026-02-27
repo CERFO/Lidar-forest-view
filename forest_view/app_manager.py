@@ -62,6 +62,8 @@ class AppManager(QObject):
             )
             self.tree_info = None
 
+        self._map_crs_epsg = getattr(self, '_map_crs_epsg', 2949)
+        self._map_basemap = getattr(self, '_map_basemap', BASEMAP_OSM)
         self.photo_window = PhotoWindow(
             self.photo_info, self.tree_info,
             os.path.join(self.form.paths['project_dir'], 'panoramas'),
@@ -89,7 +91,10 @@ class AppManager(QObject):
             self.photo_window.gl_widget.load_image
         )
         self.photo_window.map_widget.new_tree_attributes.connect(
-            self.photo_window.propriety_widget.load_data
+            self.photo_window.propriety_widget.select_row_for_tree
+        )
+        self.photo_window.propriety_widget.tree_row_selected.connect(
+            self.photo_window.map_widget.highlight_tree_by_data
         )
         self.lidar_window.lidar_tree_selected.connect(
             self.photo_window.map_widget.find_point
@@ -201,6 +206,21 @@ class AppManager(QObject):
         self._unified_window.raise_()
         self._unified_window.activateWindow()
 
+    def set_map_crs(self, epsg: int):
+        """Change le CRS de la carte et redessine avec les mêmes données."""
+        self._map_crs_epsg = int(epsg)
+        self.photo_window.gl_widget.new_pointer_direction.disconnect()
+        self.photo_window.replot_map(
+            self.photo_info, self.tree_info, self._map_crs_epsg
+        )
+
+    def set_map_basemap(self, provider_id: str):
+        """Change le fond de carte et rafraîchit les tuiles."""
+        self._map_basemap = provider_id
+        self.photo_window.map_widget.set_basemap(provider_id)
+        self.photo_window.map_widget.add_osm_base_map()
+        if self._unified_window is not None:
+            self._unified_window.set_basemap_checked(provider_id)
 
     def change_site(self):
         """Demande confirmation, ferme les fenêtres de navigation et retourne au choix du projet."""
