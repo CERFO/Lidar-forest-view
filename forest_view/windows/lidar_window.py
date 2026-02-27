@@ -11,6 +11,8 @@ from forest_view.logger import get_logger
 
 logger = get_logger(__name__)
 
+TREE_LABEL_FONT_SIZE = 24
+
 
 class LidarWindow(QMainWindow):
     camera_parameters = [[0, 0, 0], [1, 0, 0], [0, 0, 1]]
@@ -64,10 +66,11 @@ class LidarWindow(QMainWindow):
         if self.translation is None:
             self.translation = np.mean(tree_pcd, axis=0)
         tree_pcd = tree_pcd - self.translation
-        labels = [entry['No_tige'] for entry in tree_data]
+        self._tree_positions_centered = np.asarray(tree_pcd)
+        self._tree_labels = [str(entry.get('No_tige', '')) for entry in tree_data]
         self.plotter.add_point_labels(
-            tree_pcd, labels, name='arbres', point_size=30, point_color='pink',
-            always_visible=True, pickable=True
+            tree_pcd, self._tree_labels, name='arbres', point_size=30, point_color='pink',
+            font_size=TREE_LABEL_FONT_SIZE, always_visible=True, pickable=True
         )
 
     def update_camera_position(self, camera_position):
@@ -118,15 +121,42 @@ class LidarWindow(QMainWindow):
     def on_lidar_selected_tree(self, picked_point):
         if 'selected_point' in self.plotter.actors.keys():
             self.plotter.remove_actor('selected_point')
-        self.plotter.add_mesh(picked_point, name='selected_point', point_size=30, color='yellow')
+        picked_centered = np.asarray(picked_point)
+        self.plotter.add_mesh(picked_centered, name='selected_point', point_size=30, color='yellow')
+        self._highlight_selected_label(picked_centered)
         picked_point = np.array(picked_point) + self.translation
         self.lidar_tree_selected.emit(picked_point)
         
     def on_map_selected_tree(self, tree_position):
         if 'selected_point' in self.plotter.actors.keys():
             self.plotter.remove_actor('selected_point')
-        tree_position = tree_position - self.translation
-        self.plotter.add_mesh(tree_position, name='selected_point', point_size=30, color='yellow')
+        tree_position = np.asarray(tree_position, dtype=float)
+        tree_position_centered = tree_position - self.translation
+        self.plotter.add_mesh(tree_position_centered, name='selected_point', point_size=30, color='yellow')
+        self._highlight_selected_label(tree_position_centered)
+
+    def _highlight_selected_label(self, position_centered):
+        """Affiche le libellé (No_tige) de l'arbre sélectionné en surbrillance dans le nuage de points."""
+        if not hasattr(self, '_tree_positions_centered') or self._tree_positions_centered is None:
+            return
+        if not hasattr(self, '_tree_labels') or not self._tree_labels:
+            return
+        pos = np.asarray(position_centered).reshape(1, 3)
+        dists = np.linalg.norm(self._tree_positions_centered - pos, axis=1)
+        idx = int(np.argmin(dists))
+        label = self._tree_labels[idx]
+        if 'selected_label' in self.plotter.actors.keys():
+            self.plotter.remove_actor('selected_label')
+        self.plotter.add_point_labels(
+            self._tree_positions_centered[idx : idx + 1],
+            [label],
+            name='selected_label',
+            point_size=0,
+            font_size=TREE_LABEL_FONT_SIZE,
+            text_color='yellow',
+            bold=True,
+            always_visible=True,
+        )
 
     def change_site(self, cloud_path, tree_info):
         self.reset()
@@ -139,6 +169,8 @@ class LidarWindow(QMainWindow):
         self.camera_parameters = [[0, 0, 0], [1, 0, 0], [0, 0, 1]]
         self.plotter.camera_position = self.camera_parameters
         self.translation = None
+        self._tree_positions_centered = None
+        self._tree_labels = None
 
     def closeEvent(self, event):
         self.plotter.close()
