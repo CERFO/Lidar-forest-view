@@ -42,7 +42,7 @@ class DataForm(QDialog):
         self.fields = {}
         self.paths = {}
         self.memory = readJSON('appsettings.json') if os.path.exists('appsettings.json') else {}
-        self._instant_tooltip = {}  # id(widget) -> texte d'aide, pour affichage immédiat au survol
+        self._instant_tooltip = {}
 
         _hints_path = os.path.join(os.path.dirname(__file__), 'field_hints.json')
         self._field_hints = readJSON(_hints_path) if os.path.exists(_hints_path) else {}
@@ -73,7 +73,7 @@ class DataForm(QDialog):
             font = QFont(info.font())
             font.setPointSize(font.pointSize() - 1)
             info.setFont(font)
-            info.setStyleSheet("")  # utilise la couleur de texte du thème (blanc sur fond sombre, noir sur clair)
+            info.setStyleSheet("")
             self._instant_tooltip[id(info)] = help_text
             info.installEventFilter(self)
             label_layout.addWidget(info)

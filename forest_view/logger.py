@@ -20,7 +20,7 @@ def _archive_log_to_zip(log_path, archive_dir):
             zf.write(log_path, arcname=base_name)
         os.remove(log_path)
     except OSError:
-        pass  # laisser le .log en place si la compression ou la suppression échoue
+        pass
 
 
 class DailyRotatingFileHandler(logging.Handler):
@@ -126,7 +126,6 @@ def setup_logging(log_dir=None):
     os.makedirs(log_dir, exist_ok=True)
     handler = DailyRotatingFileHandler(log_dir)
     handler.setLevel(logging.DEBUG)
-    # Le format de date par défaut du Formatter inclut date, heure et millisecondes (ex. 2025-02-09 10:30:00,123)
     formatter = logging.Formatter(
         "%(asctime)s %(levelname)s [%(name)s] %(message)s"
     )

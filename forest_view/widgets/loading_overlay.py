@@ -38,11 +38,9 @@ class InfiniteLoadBar(QWidget):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        # Piste (fond)
         painter.setPen(Qt.PenStyle.NoPen)
         painter.setBrush(QBrush(QColor(60, 60, 60, 200)))
         painter.drawRoundedRect(QRectF(0, 0, w, h), track_radius, track_radius)
-        # Segment mobile (boucle infinie)
         x = (w + chunk_width) * self._offset - chunk_width
         painter.setBrush(QBrush(QColor(74, 158, 255)))
         painter.drawRoundedRect(QRectF(x, 0, chunk_width, h), track_radius, track_radius)
