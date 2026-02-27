@@ -2,6 +2,7 @@ import math
 
 import laspy as lp
 import numpy as np
+from pyvista import get_reader
 import pyvistaqt as pvqt
 from PyQt6.QtCore import QEvent, Qt, pyqtSignal
 from PyQt6.QtGui import QCursor
@@ -72,6 +73,12 @@ class LidarWindow(QMainWindow):
             tree_pcd, self._tree_labels, name='arbres', point_size=30, point_color='pink',
             font_size=TREE_LABEL_FONT_SIZE, always_visible=True, pickable=True
         )
+
+    def add_qsm(self, qsm_path, actor_name):
+        reader = get_reader(qsm_path)
+        mesh = reader.read()
+        mesh = mesh.translate(-self.translation)
+        self.plotter.add_mesh(mesh, name=actor_name)
 
     def update_camera_position(self, camera_position):
         if len(self.plotter.actors) != 0:

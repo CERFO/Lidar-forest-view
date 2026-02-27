@@ -127,16 +127,21 @@ class AppManager(QObject):
 
         def _run_loading():
             try:
-                self.lidar_window.load_point_cloud(
-                    self.project_dir / 'cloud.laz', 'main_cloud'
-                )
-                QApplication.processEvents()
-                if tree_info:
-                    self.lidar_window.add_trees(tree_info)
-                QApplication.processEvents()
-                self.lidar_window.load_point_cloud(
-                    self.project_dir / 'aero_cloud.laz', 'aeroporté'
-                )
+                for item in self.project_dir.iterdir():
+                    if item.is_file() and item.suffix in ['.laz', '.las']:
+                        self.lidar_window.load_point_cloud(
+                            item, item.name
+                        )
+                        QApplication.processEvents()
+                    elif item.is_dir() and item.name == 'qsm':
+                        for i, obj in enumerate(item.iterdir()):
+                            if obj.is_file() and obj.suffix == '.obj':
+                                self.lidar_window.add_qsm(obj, obj.name)
+                                print(i)
+                            if i % 50 == 0:
+                                QApplication.processEvents()
+                    else:
+                        continue
                 QApplication.processEvents()
                 if photo_info and len(photo_info) > 0:
                     p = photo_info[0]
