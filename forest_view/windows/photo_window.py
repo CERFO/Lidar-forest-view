@@ -1,4 +1,5 @@
-from PyQt6.QtCore import Qt, QMarginsF
+from PyQt6.QtCore import Qt, QMarginsF, QRect, QSize
+from PyQt6.QtGui import QIcon, QPainter
 from PyQt6.QtWidgets import (
     QApplication,
     QGroupBox,
@@ -7,17 +8,61 @@ from PyQt6.QtWidgets import (
     QPushButton,
     QCheckBox,
     QSizePolicy,
+    QStyle,
+    QStyleOptionButton,
     QVBoxLayout,
     QWidget,
 )
 
 from forest_view.widgets import GLWidget, CustomMapWidget, ProprietyWidget
 
-# Panneaux latéral (carte) et inférieur (propriétés).
 SIDE_PANEL_WIDTH = 340
 TOGGLE_STRIP_WIDTH = 28
+TOGGLE_MAP_BTN_WIDTH = 28
 BOTTOM_PANEL_HEIGHT = 180
 TOGGLE_STRIP_HEIGHT = 28
+TOGGLE_TABLE_BTN_MIN_WIDTH = 140
+
+
+class VerticalLabelPushButton(QPushButton):
+    """Bouton qui affiche son label en vertical (haut vers bas) pour rester étroit."""
+    def paintEvent(self, event):
+        option = QStyleOptionButton()
+        self.initStyleOption(option)
+        option.text = ""
+        option.icon = QIcon()
+        painter = QPainter(self)
+        self.style().drawControl(QStyle.ControlElement.CE_PushButton, option, painter, self)
+        margin = 4
+        icon_bottom = margin
+        icon = self.icon()
+        if not icon.isNull():
+            icon_size = self.iconSize()
+            if not icon_size.isValid():
+                icon_size = QSize(20, 20)
+            icon_rect = QRect(margin, margin, self.width() - 2 * margin, icon_size.height())
+            painter.save()
+            painter.translate(icon_rect.x() + icon_rect.width(), icon_rect.y())
+            painter.scale(-1, 1)
+            painter.translate(-icon_rect.width(), 0)
+            icon.paint(painter, QRect(0, 0, icon_rect.width(), icon_rect.height()), Qt.AlignmentFlag.AlignCenter)
+            painter.restore()
+            icon_bottom = margin + icon_size.height()
+        text = self.text()
+        if text:
+            painter.save()
+            font = self.font()
+            painter.setFont(font)
+            fm = painter.fontMetrics()
+            text_width = fm.horizontalAdvance(text)
+            font_height = fm.height()
+            center_x = self.width() // 2
+            center_y = self.height() // 2
+            painter.translate(center_x, center_y)
+            painter.rotate(90)
+            text_rect = QRect(-text_width // 2, -font_height // 2, text_width, font_height)
+            painter.drawText(text_rect, Qt.AlignmentFlag.AlignCenter, text)
+            painter.restore()
 
 
 class PhotoWindow(QMainWindow):
@@ -44,12 +89,16 @@ class PhotoWindow(QMainWindow):
         self.change_button.setMinimumHeight(40)
         self.change_button.clicked.connect(self._on_change_site_clicked)
 
+        self.filter_selected_only_cb = QCheckBox("Afficher uniquement la ligne sélectionnée", self)
+        self.filter_selected_only_cb.setChecked(False)
+        self.filter_selected_only_cb.toggled.connect(self.propriety_widget.set_filter_only_selected)
+        bottom_options = QWidget()
         propriety_box = QGroupBox('Propriétés')
         propriety_box_layout = QVBoxLayout()
         propriety_box_layout.setContentsMargins(1, 0, 1, 1)
         propriety_box_layout.setSpacing(0)
         propriety_box_layout.addWidget(self.propriety_widget, 2)
-        propriety_box_layout.addWidget(self.tree_focus_box)
+        propriety_box_layout.addWidget(bottom_options)
         propriety_box.setLayout(propriety_box_layout)
 
         self.bottom_panel = QWidget()
@@ -59,9 +108,10 @@ class PhotoWindow(QMainWindow):
         bottom_panel_layout.addWidget(propriety_box)
         self.bottom_panel.setVisible(False)
 
-        self.toggle_bottom_btn = QPushButton("\u25b2", self)
+        self.toggle_bottom_btn = QPushButton(self)
         self.toggle_bottom_btn.setFixedHeight(TOGGLE_STRIP_HEIGHT)
-        self.toggle_bottom_btn.setToolTip("Ouvrir les propriétés")
+        self.toggle_bottom_btn.setMinimumWidth(TOGGLE_TABLE_BTN_MIN_WIDTH)
+        self._set_table_button_icon_and_text(open_=False)
         self.toggle_bottom_btn.clicked.connect(self._toggle_bottom_panel)
 
         bottom_container = QWidget()
@@ -76,22 +126,27 @@ class PhotoWindow(QMainWindow):
         self.side_panel.setFixedWidth(SIDE_PANEL_WIDTH)
         side_layout = QVBoxLayout(self.side_panel)
         side_layout.setContentsMargins(0, 0, 0, 0)
-        side_layout.addWidget(self.map_widget, 3)
-        side_layout.addWidget(self.change_button, 0)
+        side_layout.addWidget(self.map_widget, 1)
         self.side_panel.setVisible(False)
 
-        self.toggle_panel_btn = QPushButton("\u25c0", self)
-        self.toggle_panel_btn.setFixedSize(TOGGLE_STRIP_WIDTH, 80)
-        self.toggle_panel_btn.setToolTip("Ouvrir la carte")
+        self.toggle_panel_btn = VerticalLabelPushButton(self)
+        self.toggle_panel_btn.setFixedSize(TOGGLE_MAP_BTN_WIDTH, 80)
+        self.toggle_panel_btn.setIconSize(QSize(20, 20))
+        self._set_map_button_icon_and_text(open_=False)
         self.toggle_panel_btn.clicked.connect(self._toggle_side_panel)
+
+        right_buttons = QWidget()
+        right_buttons_layout = QVBoxLayout(right_buttons)
+        right_buttons_layout.setContentsMargins(0, 0, 0, 0)
+        right_buttons_layout.addWidget(self.toggle_panel_btn, 0)
+        right_buttons_layout.addStretch(1)
 
         right_container = QWidget()
         right_container.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding)
         right_layout = QHBoxLayout(right_container)
         right_layout.setContentsMargins(0, 0, 0, 0)
-        right_layout.setSpacing(0)
         right_layout.addWidget(self.side_panel, 0)
-        right_layout.addWidget(self.toggle_panel_btn, 0)
+        right_layout.addWidget(right_buttons, 0)
 
         content_row = QWidget()
         content_row_layout = QHBoxLayout(content_row)
@@ -108,25 +163,47 @@ class PhotoWindow(QMainWindow):
         central_widget.setLayout(main_layout)
         self.setCentralWidget(central_widget)
 
+    def _map_icon(self):
+        for name in ("view-map", "map", "map-marked", "mark-location", "place", "globe", "world"):
+            icon = QIcon.fromTheme(name)
+            if not icon.isNull():
+                return icon
+        return QIcon()
+
+    def _table_icon(self):
+        icon = QIcon.fromTheme("view-table")
+        if icon.isNull():
+            icon = QIcon.fromTheme("x-office-spreadsheet")
+        if icon.isNull():
+            icon = self.style().standardIcon(QStyle.StandardPixmap.SP_FileDialogContentsView)
+        return icon
+
+    def _set_map_button_icon_and_text(self, open_):
+        self.toggle_panel_btn.setIcon(self._map_icon())
+        self.toggle_panel_btn.setText("Carte")
+        if open_:
+            self.toggle_panel_btn.setToolTip("Fermer la carte")
+        else:
+            self.toggle_panel_btn.setToolTip("Ouvrir la carte")
+
+    def _set_table_button_icon_and_text(self, open_):
+        self.toggle_bottom_btn.setIcon(self._table_icon())
+        if open_:
+            self.toggle_bottom_btn.setText("Table d'attributs")
+            self.toggle_bottom_btn.setToolTip("Fermer la table d'attributs")
+        else:
+            self.toggle_bottom_btn.setText("Table d'attributs")
+            self.toggle_bottom_btn.setToolTip("Ouvrir la table d'attributs")
+
     def _toggle_side_panel(self):
         visible = self.side_panel.isVisible()
         self.side_panel.setVisible(not visible)
-        if visible:
-            self.toggle_panel_btn.setText("\u25c0")
-            self.toggle_panel_btn.setToolTip("Ouvrir la carte")
-        else:
-            self.toggle_panel_btn.setText("\u25b6")
-            self.toggle_panel_btn.setToolTip("Fermer la carte")
+        self._set_map_button_icon_and_text(open_=not visible)
 
     def _toggle_bottom_panel(self):
         visible = self.bottom_panel.isVisible()
         self.bottom_panel.setVisible(not visible)
-        if visible:
-            self.toggle_bottom_btn.setText("\u25b2")
-            self.toggle_bottom_btn.setToolTip("Ouvrir les propriétés")
-        else:
-            self.toggle_bottom_btn.setText("\u25bc")
-            self.toggle_bottom_btn.setToolTip("Fermer les propriétés")
+        self._set_table_button_icon_and_text(open_=not visible)
 
     def _on_change_site_clicked(self):
         if callable(self.on_change_site_requested):
