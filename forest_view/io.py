@@ -1,6 +1,5 @@
 import csv
 import json
-import os
 
 from forest_view.logger import get_logger
 

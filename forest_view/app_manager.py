@@ -1,4 +1,4 @@
-import os
+from pathlib import Path
 
 import numpy as np
 from PyQt6.QtCore import QObject, QTimer
@@ -22,6 +22,7 @@ class AppManager(QObject):
             ['Répertoire du projet', 'project_dir', 'répertoire'],
         ])
         self.form.exec()
+        self.project_dir = Path(self.form.paths['project_dir'])
         self._open_navigation()
 
     def _open_navigation(self):
@@ -40,7 +41,7 @@ class AppManager(QObject):
         """Implémentation du chargement et de l'affichage."""
         try:
             self.photo_info = CSV_to_dict(
-                os.path.join(self.form.paths['project_dir'], 'photo_info.csv'), ','
+                self.project_dir / 'photo_info.csv', ','
             )
         except FileNotFoundError:
             QMessageBox.warning(
@@ -52,7 +53,7 @@ class AppManager(QObject):
 
         try:
             self.tree_info = CSV_to_dict(
-                os.path.join(self.form.paths['project_dir'], 'tree_info.csv'), ','
+                self.project_dir / 'tree_info.csv', ','
             )
         except FileNotFoundError:
             QMessageBox.warning(
@@ -66,7 +67,7 @@ class AppManager(QObject):
         self._map_basemap = getattr(self, '_map_basemap', BASEMAP_OSM)
         self.photo_window = PhotoWindow(
             self.photo_info, self.tree_info,
-            os.path.join(self.form.paths['project_dir'], 'panoramas'),
+            self.project_dir / 'panoramas',
             initial_crs_epsg=self._map_crs_epsg,
             initial_basemap_id=self._map_basemap,
         )
@@ -127,14 +128,14 @@ class AppManager(QObject):
         def _run_loading():
             try:
                 self.lidar_window.load_point_cloud(
-                    os.path.join(project_dir, 'cloud.laz'), 'main_cloud'
+                    self.project_dir / 'cloud.laz', 'main_cloud'
                 )
                 QApplication.processEvents()
                 if tree_info:
                     self.lidar_window.add_trees(tree_info)
                 QApplication.processEvents()
                 self.lidar_window.load_point_cloud(
-                    os.path.join(project_dir, 'aero_cloud.laz'), 'aeroporté'
+                    self.project_dir / 'aero_cloud.laz', 'aeroporté'
                 )
                 QApplication.processEvents()
                 if photo_info and len(photo_info) > 0:
