@@ -1,15 +1,28 @@
 # Lidar-forest-view
-Utilitaire de visualisation simultanée de données lidar, photo et cartographique en contexte forestier
+
+Utilitaire de visualisation simultanée de données lidar, photo et cartographique en contexte forestier.
+
+## Table des matières
+
+- [Entrées au lancement](#entrées-au-lancement)
+- [Système de coordonnées (CRS) et carte](#système-de-coordonnées-crs-et-carte)
+- [Structure du code](#structure-du-code)
+- [Environnement et dépendances](#environnement-et-dépendances)
+- [Lancement](#lancement)
+- [Guide d'utilisateur](#guide-dutilisateur)
+- [Création de projets](#création-de-projets)
+
+---
 
 ## Entrées au lancement
 
-À l’ouverture, l’app demande **un répertoire de projet** (formulaire). Tous les chemins ci‑dessous sont soit ce dossier, soit relatifs à lui (sauf `appsettings.json`). Pour le **type et le format** de chaque entrée (fichier / répertoire), voir [docs/formats_entrees.md](docs/formats_entrees.md).
+À l'ouverture, l'application demande **un répertoire de projet** (formulaire). Tous les chemins ci‑dessous sont soit ce dossier, soit relatifs à lui (sauf `appsettings.json`). Pour le **type et le format** de chaque entrée, voir [docs/formats_entrees.md](docs/formats_entrees.md).
 
 | Entrée | Où | Description |
 |--------|-----|-------------|
 | **Répertoire de projet** | Saisi au lancement | Dossier du projet. Peut être mémorisé dans `appsettings.json` (répertoire courant). |
-| **`photo_info.csv`** | Dans le projet | CSV : `image`, `x`, `y`, `z` ; optionnel `yaw`, `pitch`, `roll`. Sinon : pas de points photo ni panorama. |
-| **`tree_info.csv`** | Dans le projet | CSV : `x`, `y`, `z`, `No_tige` + autres colonnes (propriétés). Sinon : pas de points arbre. |
+| **`photo_info.csv`** | Dans le projet | CSV : `image`, `x`, `y`, `z` ; optionnel `yaw`, `pitch`, `roll`. Les colonnes `x`, `y` sont interprétées dans le CRS choisi (voir [CRS et carte](#système-de-coordonnées-crs-et-carte)). |
+| **`tree_info.csv`** | Dans le projet | CSV : `x`, `y`, `z`, `No_tige` + autres colonnes (propriétés). `x`, `y` dans le même CRS que la carte. |
 | **`panoramas/`** | Dans le projet | Dossier d'images ; noms = colonne `image` de `photo_info.csv` (ex. `pano0001.jpg`). |
 | **`cloud.laz`** | Dans le projet | Nuage lidar principal. Sinon : console + vue 3D vide. |
 | **`aero_cloud.laz`** | Dans le projet | Second nuage (ex. aéroporté). Sinon : message console. |
@@ -17,15 +30,13 @@ Utilitaire de visualisation simultanée de données lidar, photo et cartographiq
 
 ### Structure de projet canonique
 
-Arborescence de référence attendue par l’app. Chaque élément est soit **généré par un outil** du dépôt, soit **à ajouter manuellement** (ou via un autre pipeline).
-
 ```
 <répertoire de projet>/
-├── photo_info.csv      # Généré par les outils photo (colonnes : image, timestamp, x, y, z, roll, pitch, yaw)
-├── tree_info.csv       # À ajouter manuellement (colonnes : x, y, z, No_tige, + autres)
-├── cloud.laz           # À ajouter manuellement (nuage lidar principal)
-├── aero_cloud.laz      # À ajouter manuellement (nuage aéroporté)
-└── panoramas/          # Généré par les outils photo
+├── photo_info.csv      (colonnes : image, x, y, z, optionnel yaw, pitch, roll)
+├── tree_info.csv       (colonnes : x, y, z, No_tige, + autres)
+├── cloud.laz
+├── aero_cloud.laz
+└── panoramas/
     ├── pano0000.jpg
     ├── pano0001.jpg
     └── ...
@@ -33,127 +44,166 @@ Arborescence de référence attendue par l’app. Chaque élément est soit **g�
 
 ### Outils de préparation des données
 
-Ces outils créent le dossier projet, `panoramas/` et `photo_info.csv`. Ils **ne génèrent pas** `tree_info.csv`, `cloud.laz` ni `aero_cloud.laz` ; à ajouter séparément pour la visualisation complète.
-
 | Outil | Rôle |
 |-------|------|
-| **`project_maker.py`** | Outil unifié : crée le projet + `panoramas/` + `photo_info.csv` à partir de GS-vision, Insta 360, Eagle ou Hémisphérique (trajectoire, calibration, Hugin selon le type). |
-| **`scripts/Trait_photo_v6.py`** | Flux Hémisphérique seul (trajectoire + calibration + fisheye + Hugin) → même structure (panoramas + photo_info). Script autonome, non utilisé par l’app ni par project_maker. |
-| **`scripts/trait_insta360.py`** | Flux Insta 360 seul (trajectoire CSV + photos panoramiques) → copie des panoramas + photo_info. Script autonome. |
-| **`scripts/convert_gs_vision_v2.py`** | Flux GS-Vision seul (JSON + photos) → copie des panoramas + photo_info. Script autonome. |
+| **`project_maker.py`** | Crée le projet + `panoramas/` + `photo_info.csv` à partir de GS-vision, Insta 360, Eagle ou Hémisphérique. |
+| **`scripts/Trait_photo_v6.py`** | Flux Hémisphérique seul. Script autonome. |
+| **`scripts/trait_insta360.py`** | Flux Insta 360 seul. Script autonome. |
+| **`scripts/convert_gs_vision_v2.py`** | Conversion GS-Vision vers structure projet. Script autonome. |
 
-Les scripts dans `scripts/` ne sont pas appelés par l’application ni par `project_maker` ; ce sont des points d’entrée alternatifs (un flux par script). Voir [scripts/README.md](scripts/README.md) pour leur usage.
+Voir [scripts/README.md](scripts/README.md) pour l'usage des scripts. Ils ne génèrent pas `tree_info.csv`, `cloud.laz` ni `aero_cloud.laz` ; à ajouter séparément pour la visualisation complète.
+
+---
+
+## Système de coordonnées (CRS) et carte
+
+### Coordonnées des données
+
+Les colonnes **`x`** et **`y`** de `photo_info.csv` et `tree_info.csv` ne sont **pas nécessairement** en longitude/latitude (WGS84). Elles peuvent être dans un système projeté, par exemple **EPSG:2949** (NAD83(CSRS) / MTM zone 7), en mètres.
+
+L'application effectue une **reprojection à la volée** du CRS des données vers **WGS84 (EPSG:4326)** pour :
+
+- afficher les points sur la **carte** (scène en degrés) ;
+- aligner les données avec le **fond de carte OSM** (WGS84).
+
+Si le CRS choisi n'est pas 4326, le module **pyproj** est requis (`pip install pyproj`). Sans pyproj et avec un CRS autre que WGS84, un message d'erreur explicite s'affiche.
+
+### Menu Carte > CRS
+
+Dans la fenêtre unifiée, le menu **Carte** permet de définir le CRS des données :
+
+- **CRS > EPSG:2949 – NAD83(CSRS) / MTM zone 7** (valeur par défaut au démarrage) ;
+- **CRS > EPSG:4326 – WGS84** (données déjà en lon/lat) ;
+- **CRS > Autre…** : saisie d'un code EPSG personnalisé (ex. 2950).
+
+Après changement de CRS, la carte est redessinée : points et fond OSM restent alignés.
+
+### Carte : étendue et fond OSM
+
+- L'**étendue** de la carte est calculée à partir des points (photos et arbres), avec une marge, afin que le jeu de données reste entièrement visible.
+- Le **fond de carte** est constitué de tuiles OpenStreetMap (WGS84). Les points sont dessinés au-dessus des tuiles.
+- La **synchronisation carte ↔ table d'attributs** : clic sur un point sur la carte sélectionne la ligne correspondante dans la table ; sélection d'une ligne dans la table met en surbrillance le point correspondant sur la carte (sans déplacer la vue, pour conserver le fond de carte et les points à l'écran).
+
+---
 
 ## Structure du code
 
-Le projet est organisé en package Python `forest_view/` pour faciliter le travail en équipe et les évolutions.
+Le projet est organisé en package Python **`forest_view/`**.
 
-### Points d’entrée
+### Points d'entrée
 
 | Fichier / commande | Usage |
 |--------------------|--------|
-| **`main.py`** | Script à la racine : lance l’application de visualisation. Exécuter : `python main.py`. |
-| **`python -m forest_view`** | Lance la même application via le module (configure OpenGL puis démarre l’app). |
-| **`project_maker.py`** | Outil de création / mise à jour de projets (choix nouveau projet ou ajout de photos). Exécuter : `python project_maker.py`. |
-| **`scripts/Trait_photo_v6.py`** | Traitement Hémisphérique (paires, trajectoire, Hugin, export `photo_info.csv`). Script autonome. |
+| **`main.py`** | Lance l'application de visualisation : `python main.py`. |
+| **`python -m forest_view`** | Même application via le module (configure OpenGL puis démarre l'app). |
+| **`project_maker.py`** | Création ou mise à jour de projets : `python project_maker.py`. |
+| **`scripts/Trait_photo_v6.py`** | Traitement Hémisphérique. Script autonome. |
 | **`scripts/trait_insta360.py`** | Traitement Insta360. Script autonome. |
-| **`scripts/convert_gs_vision_v2.py`** | Conversion GS-Vision vers structure projet. Script autonome. |
+| **`scripts/convert_gs_vision_v2.py`** | Conversion GS-Vision. Script autonome. |
 
 ### Package `forest_view/`
 
 | Fichier | Rôle |
 |---------|------|
-| **`__init__.py`** | Expose `run` pour lancer l’app. |
-| **`__main__.py`** | Point d’entrée du module : configuration OpenGL (QSurfaceFormat), création de l’application Qt et appel à `AppManager`. Définit `run()`. |
-| **`app_manager.py`** | Orchestration : affiche le formulaire de choix du répertoire projet, charge `photo_info.csv` et `tree_info.csv`, crée `PhotoWindow` et `LidarWindow`, connecte les signaux entre fenêtres, charge les nuages lidar (`cloud.laz`, `aero_cloud.laz`) et les arbres. Gère aussi le changement de site. |
-| **`io.py`** | Lecture/écriture fichiers : `readCSV`, `CSV_to_dict`, `writeCSV`, `readJSON`, `writeJSON`, `export_photo_info_to_csv`. Utilisé par l’app, le project maker et les scripts dans `scripts/`. |
-| **`photo_pipeline.py`** | Traitement des photos : `get_valid_pairs`, `stitch_photos` (Hugin), `get_photo_locations`, `quaternion_to_euler`. Utilisé par les scripts dans `scripts/`. |
-| **`forms.py`** | Formulaire de saisie de chemins : classe `DataForm` (fichier/répertoire, mémorisation dans `appsettings.json`). |
+| **`__init__.py`** | Expose `run` pour lancer l'app. |
+| **`__main__.py`** | Point d'entrée du module : configuration OpenGL, création de l'application Qt, appel à `AppManager`. |
+| **`app_manager.py`** | Orchestration : formulaire répertoire projet, chargement CSV et nuages lidar, création des fenêtres (Photo, Lidar, unifiée), connexion des signaux, gestion du CRS de la carte et du changement de site. |
+| **`crs_utils.py`** | Reprojection des coordonnées : `data_to_wgs84(x, y, crs_epsg)` vers WGS84 pour la scène et OSM ; nécessite pyproj si CRS ≠ 4326. |
+| **`io.py`** | Lecture/écriture : `readCSV`, `CSV_to_dict`, `writeCSV`, `readJSON`, `writeJSON`, `export_photo_info_to_csv`. |
+| **`photo_pipeline.py`** | Traitement des photos : `get_valid_pairs`, `stitch_photos` (Hugin), `get_photo_locations`, `quaternion_to_euler`. |
+| **`forms.py`** | Formulaire de saisie de chemins (`DataForm`) et mémorisation dans `appsettings.json`. |
+| **`logger.py`** | Logging avec rotation quotidienne et archivage. |
 
 ### Sous-package `forest_view/widgets/`
 
 | Fichier | Rôle |
 |---------|------|
-| **`__init__.py`** | Réexporte `GLWidget`, `CustomMapWidget`, `Pointer`, `PhotoPoint`, `TreePoint`, `ProprietyWidget`. |
-| **`gl_panorama.py`** | Widget OpenGL `GLWidget` : affichage des panoramas équirectangulaires (sphère texturée), rotation souris, zoom molette, signaux direction caméra et pointeur. |
-| **`map.py`** | Carte des points d’intérêt : `CustomMapWidget` (scène, photo/arbres, zoom, signaux panorama/caméra/propriétés) et `Pointer` (flèche direction de vue). |
-| **`map_items.py`** | Éléments de la carte : `PhotoPoint` (clic = charger panorama + mettre à jour caméra) et `TreePoint` (clic = afficher propriétés, sélection). |
-| **`properties.py`** | Widget `ProprietyWidget` : affichage des champs (ex. propriétés d’un arbre sélectionné). |
+| **`__init__.py`** | Réexporte `GLWidget`, `CustomMapWidget`, `Pointer`, `PhotoPoint`, `TreePoint`, `ProprietyWidget`, `LoadingOverlay`, `show_overlay`. |
+| **`gl_panorama.py`** | Widget OpenGL `GLWidget` : panoramas équirectangulaires, rotation, zoom, signaux caméra et pointeur. |
+| **`map.py`** | `CustomMapWidget` : scène en WGS84 (lon, -lat), points photo/arbres, fond OSM, étendue calée sur les données, signaux panorama/caméra/propriétés ; `Pointer` (direction de vue). |
+| **`map_items.py`** | `PhotoPoint` (clic = charger panorama, mise à jour caméra) ; `TreePoint` (clic = propriétés, sélection, alignement avec la table par index de ligne). |
+| **`properties.py`** | `ProprietyWidget` : table d'attributs (ex. arbres), synchronisation avec la carte (sélection ligne ↔ point). |
+| **`loading_overlay.py`** | `LoadingOverlay` et `show_overlay` : superposition de chargement (message + barre) sur toute la fenêtre au démarrage de la navigation. |
 
 ### Sous-package `forest_view/windows/`
 
 | Fichier | Rôle |
 |---------|------|
 | **`__init__.py`** | Réexporte `PhotoWindow` et `LidarWindow`. |
-| **`photo_window.py`** | Fenêtre principale photo : `PhotoWindow` (layout avec `GLWidget`, carte, groupe propriétés, bouton « Changer de site »). Gère `change_site` (réinit carte, propriétés, panorama). |
-| **`lidar_window.py`** | Fenêtre 3D lidar : `LidarWindow` (PyVista), chargement nuages `.laz`, affichage des arbres, synchronisation caméra avec la fenêtre photo, picking sur les arbres, changement de site. |
+| **`photo_window.py`** | `PhotoWindow` : GLWidget (panorama), carte, propriétés, case « Vérouiller la vue à l'arbre ». Gère `change_site` et `replot_map` (CRS). |
+| **`lidar_window.py`** | `LidarWindow` : vue 3D PyVista, nuages `.laz`, arbres, synchronisation caméra avec la fenêtre photo, picking arbres. |
+| **`unified_window.py`** | Fenêtre unifiée : panneaux Lidar et Photo côte à côte, carte et propriétés en overlay ; menu **Fichier** (Changer de site, Quitter), menu **Carte** (CRS). |
 
 ### Racine du dépôt
 
 | Fichier | Rôle |
 |---------|------|
-| **`Librairie.py`** | Stub de compatibilité : réexporte PyQt6, stdlib et symboles `forest_view` (forms, io, photo_pipeline, widgets) pour que les scripts qui font `from Librairie import *` (`project_maker.py`, `scripts/*.py`) fonctionnent sans modification. À terme, migrer ces scripts vers des imports explicites depuis `forest_view.*`. |
+| **`Librairie.py`** | Stub de compatibilité pour les scripts utilisant `from Librairie import *` (`project_maker.py`, `scripts/*.py`). |
 
-## Contexte de développement
-# Guide d'utilisateur
-## Table des matières
-[Environnement](#environnement)
+---
 
-[Lancement](#lancement)
+## Environnement et dépendances
 
-[Navigation](#navigation)
+- **Python** (3.x)
+- **PyQt6**
+- **PyVista** et **PyVistaQt**
+- **OpenGL**
+- **numpy**
+- **pyproj** (reprojection CRS pour la carte ; requis si les données ne sont pas en WGS84)
+- **laspy** et **laszip** (nuages de points)
 
-[Création de projets](#création-de-projets)
-## Environnement
-Python
-- PyQt
-- Pyvista et PyvistaQt
-- OpenGL
-- numpy
-- laspy et laszip
+---
 
 ## Lancement
 
-### Mise en page
-Mettre des images!
+1. Exécuter `python main.py` ou `python -m forest_view`.
+2. Choisir le répertoire du projet (mémorisé dans `appsettings.json`).
+3. La fenêtre unifiée s'ouvre (Lidar | Photo + carte + propriétés). Un overlay « Chargement des nuages de points… » couvre toute la fenêtre pendant le chargement, puis disparaît.
 
-## Navigation
+---
+
+## Guide d'utilisateur
+
 ### Carte
-- La carte (en bas à gauche), permet de naviguer entre les différentes photos (points bleus) et arbres (points verts).
-- Cliquer sur un point de photo affichera la photo dans l'espace prévu à cet effet.
-- Cliquer sur un point d'arbre affichera la donnée disponible sur celui-ci dans la liste de propriétés. Ce point deviendra jaune sur la carte et dans le nuage lidar.
-- La roue permet de zoomer
-- Les déplacements sont fait en tenant le bouton gauche de la souris et en la déplaçant.
-### Photo
-- En tenant le bouton gauche de la souris et en la déplaçant, l'orientation de l'image change.
-- La roue gère le zoom
+
+- La carte (panneau latéral) affiche les points de **photos** (bleus) et d'**arbres** (verts). L'étendue est calée sur les données.
+- **Cliquer sur un point photo** : affiche le panorama et met à jour la caméra (lidar + pointeur).
+- **Cliquer sur un point arbre** : affiche les propriétés dans la table ; le point devient jaune sur la carte et dans le nuage lidar.
+- **Sélectionner une ligne dans la table d'attributs** : le point correspondant est mis en surbrillance sur la carte (sans déplacer la vue).
+- **Zoom** : molette. **Déplacement** : glisser avec le bouton gauche de la souris.
+- **CRS** : menu **Carte > CRS** pour choisir le système de coordonnées des données (ex. EPSG:2949, 4326 ou autre).
+
+### Photo (panorama)
+
+- Glisser avec le bouton gauche pour changer l'orientation.
+- Molette pour le zoom.
+
 ### Lidar
-- En tenant le bouton gauche de la souris et en la déplaçant, l'orientation du nuage de points change.
-- En appuyant plutôt sur la roue, la position d'observation change
-- La roue gère le zoom.
-- En appuyant sur un point d'arbre avec le bouton droit de la souris, les données de celui-ci s'affichent. Ce point deviendr jaune dans le nuage lidar et sur la carte
-### Verouillage des arbres
-- Pour engager le mode verouillage, cochez la case «**Verouiller la vue à l'arbre**»
-- Si vous avez un arbre sélectionné, celui-ci se centrera dans les vues photo et lidar
-- Le mouvement des photos et du nuage de points sont encore possibles
-- L'arbre sélectionné se recentrera à chaque nouvelle sélection de photo ou d'arbre
-- Pour arrêter le mode verrouillage, décochez la case «Verrouiller la vue à l'arbre»
+
+- Glisser avec le bouton gauche pour faire tourner le nuage.
+- Molette centrale pour déplacer la position d'observation ; molette pour le zoom.
+- Clic droit sur un point d'arbre : affichage des données ; le point devient jaune dans le lidar et sur la carte.
+
+### Vérouillage à l'arbre
+
+- Cocher **« Vérouiller la vue à l'arbre »** : l'arbre sélectionné reste centré dans les vues photo et lidar.
+- Changer de photo ou d'arbre recentre sur le nouvel élément.
+- Décocher pour désactiver le mode.
+
 ### Changement de site
-- Cliquer sur le bouton à cet effet en bas à droite de la fenêtre photo
-- Sélectionner l'emplacement du dossier du nouveau site dans l'explorateur de données
-- Attendre que le nouveau site charge
+
+- Menu **Fichier > Changer de site** (ou bouton dédié selon la disposition).
+- Choisir le répertoire du nouveau projet.
+- Attendre la fin du chargement.
+
+---
 
 ## Création de projets
-Cette section décrit comment créer un projet ou ajouter des scans dans un projet existant. À la fin des étapes ci-dessous, un dossier de projet contenant le fichier `photo_info.csv` et le répertoire des `panoramas` équirectangulaires.
-- Lancer le script `project_maker.py`
-- Sélectionner «Créer un nouveau projet» ou «Ajouter des photos à un projet existant» selon le cas
-    - Si vous avez choisi de **créer un projets** : sélectionnez l'emplacement où vous désirer créer le projet via le bouton «Browse», puis soumettez. Entrez le nom que vous désirez donner au projet, puis cliquez sur OK.
-    - Si vous avez choisi d'**ajouter des scans** : sélectionnez l'emplacement du dossier de projet via le bouton «Browse», puis soumettez.
-- Saisissez le nombre de scans que vous désirez ajouter
-- Remplissez le formulaire de scans
-    - Choisissez le type de données que vous désirez entrer
-    - Remplissez les champs avec les données demandées. **Format des champs pour Insta 360** (trajectoire CSV, dossier photos, orientation) : voir [docs/formats_scan_insta360.md](docs/formats_scan_insta360.md).
-        - Dans le cas des scans avec Insta 360, il est nécessaire de choisir l'orientation de la caméra. Pour distinguer les diverses orientations possibles, observez le côté du lidar se trouvant le plus souvent au centre des images.
-    - Soumettez le formulaire
-- Attendre que le processus se termine
-- Si vous désirer ajouter des données d'arbres et des nuages de points. Vous devrez le faire manuellement
+
+1. Lancer **`python project_maker.py`**.
+2. Choisir **« Créer un nouveau projet »** ou **« Ajouter des photos à un projet existant »**.
+   - **Nouveau projet** : indiquer l'emplacement du dossier, puis le nom du projet.
+   - **Ajout de scans** : indiquer le dossier du projet existant.
+3. Saisir le nombre de scans et remplir le formulaire (type de données, champs). Pour **Insta 360**, voir [docs/formats_scan_insta360.md](docs/formats_scan_insta360.md).
+4. Soumettre et attendre la fin du traitement.
+5. Pour une visualisation complète, ajouter manuellement **`tree_info.csv`**, **`cloud.laz`** et **`aero_cloud.laz`** dans le dossier projet si nécessaire.
