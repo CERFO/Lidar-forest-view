@@ -205,6 +205,7 @@ class AppManager(QObject):
             self._unified_window.on_change_site_requested = self.change_site
             self._unified_window.on_crs_changed = self.set_map_crs
             self._unified_window.on_basemap_changed = self.set_map_basemap
+            self._unified_window.on_lidar_vis_change = self.set_lidar_visibility
             self._unified_window._cleanup_before_quit = self._release_vtk_before_quit
         lidar_w = self.lidar_window.centralWidget()
         photo_content = self.photo_window.centralWidget()
@@ -234,6 +235,9 @@ class AppManager(QObject):
         self.photo_window.map_widget.add_osm_base_map()
         if self._unified_window is not None:
             self._unified_window.set_basemap_checked(provider_id)
+
+    def set_lidar_visibility(self, group, state):
+        self.lidar_window.set_visibility(group, state)
 
     def change_site(self):
         """Demande confirmation, ferme les fenêtres de navigation et retourne au choix du projet."""

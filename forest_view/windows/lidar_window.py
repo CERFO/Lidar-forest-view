@@ -47,10 +47,13 @@ class LidarWindow(QMainWindow):
             if self.translation is None:
                 self.translation = np.mean(pcd, axis=0)
             centered_pcd = pcd - self.translation
-            self.plotter.add_mesh(
+            actor = self.plotter.add_mesh(
                 centered_pcd, name=actor_name, style='points', point_size=2,
                 label=actor_name, pickable=False
             )
+            if not hasattr(self, 'cloud_group'):
+                self.cloud_group = []
+            self.cloud_group.append(actor)
         except FileNotFoundError:
             print(f'Le fichier {point_cloud_path} n\'a pas été trouvé')
             logger.info(f'Le fichier {point_cloud_path} n\'a pas été trouvé')
@@ -75,10 +78,27 @@ class LidarWindow(QMainWindow):
         )
 
     def add_qsm(self, qsm_path, actor_name):
-        reader = get_reader(qsm_path)
-        mesh = reader.read()
-        mesh = mesh.translate(-self.translation)
-        self.plotter.add_mesh(mesh, name=actor_name, pickable=False)
+        try:
+            reader = get_reader(qsm_path)
+            mesh = reader.read()
+            mesh = mesh.translate(-self.translation)
+            actor = self.plotter.add_mesh(mesh, name=actor_name, pickable=False)
+            if not hasattr(self, 'qsm_group'):
+                self.qsm_group = []
+            self.qsm_group.append(actor)
+        except FileNotFoundError:
+            print(f'Le fichier {qsm_path} n\'a pas été trouvé')
+            logger.info(f'Le fichier {qsm_path} n\'a pas été trouvé')
+
+    def set_visibility(self, group, state):
+        if group == 'qsm' and hasattr(self, 'qsm_group'):
+            for item in self.qsm_group:
+                item.visibility = state
+        elif group == 'cloud' and hasattr(self, 'cloud_group'):
+            for item in self.cloud_group:
+                item.visibility = state
+        else:
+            pass
 
     def update_camera_position(self, camera_position):
         if len(self.plotter.actors) != 0:

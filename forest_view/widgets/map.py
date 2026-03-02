@@ -86,7 +86,7 @@ class Pointer(QGraphicsPolygonItem, QObject):
         self.setPos(0, 0)
         self.setTransformOriginPoint(0, 0)
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations)
-        self.setZValue(1)
+        self.setZValue(20)
 
     def rotate_pointer(self, angle):
         self.setRotation(angle)
