@@ -1,4 +1,4 @@
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QRect
 from PyQt6.QtGui import QAction
 from PyQt6.QtWidgets import (
     QApplication,
@@ -43,7 +43,10 @@ class PanoramaMapOverlayContainer(QWidget):
         if self._panorama:
             self._panorama.setGeometry(r)
         if self._map_panel:
-            self._map_panel.setGeometry(r)
+            width = int(r.width()/3)
+            height = int(r.height()/3)
+            left = r.width() - width
+            self._map_panel.setGeometry(QRect(left, 0, width, height))
             self._map_panel.raise_()
 
     def resizeEvent(self, event):

@@ -78,7 +78,7 @@ class LidarWindow(QMainWindow):
         reader = get_reader(qsm_path)
         mesh = reader.read()
         mesh = mesh.translate(-self.translation)
-        self.plotter.add_mesh(mesh, name=actor_name)
+        self.plotter.add_mesh(mesh, name=actor_name, pickable=False)
 
     def update_camera_position(self, camera_position):
         if len(self.plotter.actors) != 0:

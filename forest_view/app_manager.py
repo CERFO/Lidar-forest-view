@@ -121,28 +121,35 @@ class AppManager(QObject):
         overlay.raise_()
         QApplication.processEvents()
 
-        project_dir = self.form.paths['project_dir']
+        project_dir = Path(self.form.paths['project_dir'])
         tree_info = self.tree_info
         photo_info = self.photo_info
 
         def _run_loading():
             try:
-                for item in self.project_dir.iterdir():
+                for item in project_dir.iterdir():
                     if item.is_file() and item.suffix in ['.laz', '.las']:
                         self.lidar_window.load_point_cloud(
                             item, item.name
                         )
                         QApplication.processEvents()
+                    elif item.is_file() and item.suffix == '.obj':
+                        self.lidar_window.add_qsm(
+                            item, item.name
+                        )
                     elif item.is_dir() and item.name == 'qsm':
                         for i, obj in enumerate(item.iterdir()):
                             if obj.is_file() and obj.suffix == '.obj':
-                                self.lidar_window.add_qsm(obj, obj.name)
-                                print(i)
+                                self.lidar_window.add_qsm(
+                                    obj, obj.name
+                                )
                             if i % 50 == 0:
                                 QApplication.processEvents()
                     else:
                         continue
                 QApplication.processEvents()
+                if tree_info and len(tree_info) > 0:
+                    self.lidar_window.add_trees(tree_info)
                 if photo_info and len(photo_info) > 0:
                     p = photo_info[0]
                     x, y, z = float(p['x']), float(p['y']), float(p['z'])
