@@ -1,0 +1,41 @@
+# Python Core & Build
+packaging==25.0
+setuptools==80.9.0
+wheel==0.45.1
+
+# GUI Frameworks
+PyQt6
+
+# LIDAR & 3D Visualization
+numpy==2.4.0
+laspy==2.6.1
+laszip==0.3.0
+open3d==0.19.0
+vtk==9.5.2
+pyvista==0.46.4
+pyvistaqt==0.11.3
+scooby==0.11.0
+
+# OpenGL & Graphics
+pyopengl==3.1.9
+pyopengl-accelerate==3.1.9
+matplotlib==3.10.8
+plotly==6.5.0
+dash==3.3.0
+
+# Analysis & Utilities
+pyproj
+ipython==9.9.0
+ipywidgets==8.1.8
+requests==2.32.5
+pooch==1.8.2
+pillow==12.1.0
+click==8.3.1
+
+# Infrastructure
+flask==3.1.2
+jinja2==3.1.6
+werkzeug==3.1.4
+jsonschema==4.26.0
+nbformat==5.10.4
+traitlets==5.14.3

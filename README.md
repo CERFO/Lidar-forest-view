@@ -8,6 +8,7 @@ Utilitaire de visualisation simultanée de données lidar, photo et cartographiq
 - [Système de coordonnées (CRS) et carte](#système-de-coordonnées-crs-et-carte)
 - [Structure du code](#structure-du-code)
 - [Environnement et dépendances](#environnement-et-dépendances)
+- [Scripts batch (Windows)](#scripts-batch-windows)
 - [Lancement](#lancement)
 - [Guide d'utilisateur](#guide-dutilisateur)
 - [Création de projets](#création-de-projets)
@@ -144,7 +145,7 @@ Le projet est organisé en package Python **`forest_view/`**.
 
 ## Environnement et dépendances
 
-- **Python** (3.x)
+- **Python** (3.x). L’application a été développée et testée sous **Python 3.12** (et versions antérieures compatibles).
 - **PyQt6**
 - **PyVista** et **PyVistaQt**
 - **OpenGL**
@@ -154,9 +155,27 @@ Le projet est organisé en package Python **`forest_view/`**.
 
 ---
 
+## Scripts batch (Windows)
+
+Sous Windows, deux scripts batch permettent de configurer un environnement virtuel et de lancer l’application sans activer le venv à la main.
+
+| Script | Rôle |
+|--------|------|
+| **`create_venv.bat`** | Crée un environnement virtuel `.venv` à la racine du dépôt, active pip à jour, puis installe toutes les dépendances listées dans `requirements.txt`. À exécuter une fois après un clône ou pour recréer l’environnement. Si `.venv` existe déjà, le script ne fait rien. |
+| **`run_app.bat`** | Lance l’application avec le Python du venv (`.venv\Scripts\python.exe main.py`). Vérifie que `.venv` existe ; sinon, affiche un message invitant à exécuter d’abord `create_venv.bat`. Les arguments éventuels sont transmis à `main.py`. |
+
+**Utilisation :**
+
+1. Double-cliquer sur `create_venv.bat` (ou l’exécuter en ligne de commande) pour créer le venv et installer les dépendances.
+2. Double-cliquer sur `run_app.bat` (ou l’exécuter en ligne de commande) pour démarrer l’application.
+
+Les deux scripts se placent automatiquement dans le répertoire du dépôt (là où se trouvent `main.py` et `requirements.txt`), quel que soit le répertoire courant au moment de l’appel.
+
+---
+
 ## Lancement
 
-1. Exécuter `python main.py` ou `python -m forest_view`.
+1. Exécuter `python main.py` ou `python -m forest_view` (ou sous Windows : `run_app.bat` après avoir exécuté `create_venv.bat` une fois ; voir [Scripts batch (Windows)](#scripts-batch-windows)).
 2. Choisir le répertoire du projet (mémorisé dans `appsettings.json`).
 3. La fenêtre unifiée s'ouvre (Lidar | Photo + carte + propriétés). Un overlay « Chargement des nuages de points… » couvre toute la fenêtre pendant le chargement, puis disparaît.
 
