@@ -24,8 +24,9 @@ Utilitaire de visualisation simultanée de données lidar, photo et cartographiq
 | **`photo_info.csv`** | Dans le projet | CSV : `image`, `x`, `y`, `z` ; optionnel `yaw`, `pitch`, `roll`. Les colonnes `x`, `y` sont interprétées dans le CRS choisi (voir [CRS et carte](#système-de-coordonnées-crs-et-carte)). |
 | **`tree_info.csv`** | Dans le projet | CSV : `x`, `y`, `z`, `No_tige` + autres colonnes (propriétés). `x`, `y` dans le même CRS que la carte. |
 | **`panoramas/`** | Dans le projet | Dossier d'images ; noms = colonne `image` de `photo_info.csv` (ex. `pano0001.jpg`). |
-| **`cloud.laz`** | Dans le projet | Nuage lidar principal. Sinon : console + vue 3D vide. |
-| **`aero_cloud.laz`** | Dans le projet | Second nuage (ex. aéroporté). Sinon : message console. |
+| **`cloud.laz`** | Dans le projet | Nuage lidar principal. Sinon : vue 3D vide. |
+| **`aero_cloud.laz`** | Dans le projet | Second nuage (ex. aéroporté). |
+| **`qsm/`** |Dans le projet | Dossier des fichiers .obj des qsm (ex. `tree_1.obj`) |
 | **`appsettings.json`** | Répertoire courant | Pré-remplit le dernier répertoire projet ; mis à jour à chaque soumission. |
 
 ### Structure de projet canonique
@@ -36,9 +37,13 @@ Utilitaire de visualisation simultanée de données lidar, photo et cartographiq
 ├── tree_info.csv       (colonnes : x, y, z, No_tige, + autres)
 ├── cloud.laz
 ├── aero_cloud.laz
-└── panoramas/
+├── panoramas/
     ├── pano0000.jpg
     ├── pano0001.jpg
+    └── ...
+└── qsm/
+    ├── tree_1.obj
+    ├── tree_2.obj
     └── ...
 ```
 
@@ -183,6 +188,7 @@ Le projet est organisé en package Python **`forest_view/`**.
 - Glisser avec le bouton gauche pour faire tourner le nuage.
 - Molette centrale pour déplacer la position d'observation ; molette pour le zoom.
 - Clic droit sur un point d'arbre : affichage des données ; le point devient jaune dans le lidar et sur la carte.
+- **Couches** : menu **Lidar** sélectionner les couches (qsm et/ou nuages) visibles avec les boîtes de sélection
 
 ### Vérouillage à l'arbre
 
