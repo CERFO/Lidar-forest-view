@@ -13,7 +13,8 @@
     "Insta 360": {
       "trajectory": "Fichier CSV (virgule) avec en-tête. Colonnes requises : name, x, y, z, roll, pitch, yaw, X..world_time. Une ligne par photo ; la colonne « name » doit contenir le nom du fichier image dans le dossier Photos panoramiques. Voir docs/formats_scan_insta360.md pour le détail.",
       "pano_photos": "Répertoire contenant les images panoramiques (ex. JPG). Chaque nom de fichier doit apparaître dans la colonne « name » du CSV de trajectoire.",
-      "camera_orientation": "Direction de la caméra par rapport au déplacement : Gauche (-90°), Droite (+90°), Avant (180°), Arrière (0°). Choisir selon le côté du lidar le plus souvent au centre des images."
+      "camera_orientation": "Direction de la caméra par rapport au déplacement : Gauche (-90°), Droite (+90°), Avant (180°), Arrière (0°). Choisir selon le côté du lidar le plus souvent au centre des images.",
+      "image_stabilization": "Est-ce que la ligne d'horizon est stabilisée sur vos photos (flow state)"
     },
     "GS-vision": {
       "gs_vision": "Fichier JSON d'export GS-Vision contenant la clé « images » (chemins et positions).",

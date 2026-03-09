@@ -96,7 +96,7 @@ class ProjectMaker(QWidget):
             if info[0] == 'GS-vision':
                 new_data, index = self.add_gs_vision_scan(info[1], info[2], index, project_path)
             elif info[0] == 'Insta 360':
-                new_data, index = self.add_insta_360_scan(info[1], info[2], info[3], index, project_path)
+                new_data, index = self.add_insta_360_scan(info[1], info[2], info[3], info[4], index, project_path)
             elif info[0] == 'Eagle':
                 new_data, index = self.add_eagle_scan(info[1], info[2], index, project_path)
             elif info[0] == 'Hémisphérique':
@@ -167,7 +167,7 @@ class ProjectMaker(QWidget):
             if info[0] == 'GS-vision':
                 new_data, index = self.add_gs_vision_scan(info[1], info[2], index, project_path)
             elif info[0] == 'Insta 360':
-                new_data, index = self.add_insta_360_scan(info[1], info[2], info[3], index, project_path)
+                new_data, index = self.add_insta_360_scan(info[1], info[2], info[3], info[4], index, project_path)
             elif info[0] == 'Eagle':
                 new_data, index = self.add_eagle_scan(info[1], info[2], index, project_path)
             elif info[0] == 'Hémisphérique':
@@ -177,36 +177,67 @@ class ProjectMaker(QWidget):
 
         self.export_data(total_data, project_path)
 
-    def add_insta_360_scan(self, traj_photos_path, photo_dir, camera_orientation,  index, project_path):
+    def add_insta_360_scan(self, traj_photos_path, photo_dir, camera_orientation, stabilized:bool, index, project_path):
         traj_photos = CSV_to_dict(traj_photos_path)
         out_data = []
 
         for data in traj_photos:
             entry_name = f'pano{index:04d}.jpg'
-            roll = float(data['roll'])
-            pitch = float(data['pitch'])
-            yaw = float(data['yaw'])
             if camera_orientation == 'Gauche':
                 yaw_offset = -90
             elif camera_orientation == 'Droite':
                 yaw_offset = 90
             elif camera_orientation == 'Avant':
                 yaw_offset = 180
-            else:
+            elif camera_orientation == 'Arrière':
                 yaw_offset = 0
-            yaw_corrected_deg = math.degrees(math.atan2(
-                math.sin(yaw) * math.cos(pitch) + math.cos(yaw) * math.sin(roll) * math.sin(pitch),
-                math.cos(yaw) * math.cos(pitch) - math.sin(yaw) * math.sin(roll) * math.sin(pitch))
-            ) + yaw_offset
+
+            pitch_offset = 23    # TODO ajouter une façon de contrôler ce paramètre
+            roll_offset = 0     # TODO ajouter une façon de contrôler ce paramètre
+
+            if stabilized:
+                roll = float(data['roll']) + math.radians(roll_offset)
+                pitch = float(data['pitch']) + math.radians(pitch_offset)
+                yaw = float(data['yaw'])
+                
+                yaw = math.degrees(math.atan2(
+                    math.sin(yaw) * math.cos(pitch) + math.cos(yaw) * math.sin(roll) * math.sin(pitch),
+                    math.cos(yaw) * math.cos(pitch) - math.sin(yaw) * math.sin(roll) * math.sin(pitch))
+                ) + yaw_offset
+                pitch = 0
+                roll = 0
+            else :
+                def global_rotate(mat, angle, ux, uy, uz):
+                    r = QMatrix4x4()
+                    r.rotate(angle, ux,uy,uz)
+                    mat = r * mat
+                    return mat
+                
+                roll = float(data['roll_deg']) 
+                pitch = float(data['pitch_deg'])
+                yaw = float(data['yaw_deg'])
+
+                m = QMatrix4x4()
+                m = global_rotate(m, yaw_offset, 0,0,1)
+                m = global_rotate(m, pitch_offset, 0,1,0)
+                m = global_rotate(m, roll_offset, 1,0,0)
+                m = global_rotate(m, roll, 1,0,0)
+                m = global_rotate(m, pitch, 0,1,0)
+                m = global_rotate(m, yaw, 0,0,1)
+
+                yaw = math.degrees(math.atan2(m[1,0], m[0,0]))
+                pitch = math.degrees(-math.asin(m[2,0]))
+                roll = math.degrees(math.atan2(m[2,1], m[2,2]))
+
             entry = [
                 entry_name,         # image
                 data['X..world_time'],  # timestamp
                 data['x'],          # x
                 data['y'],          # y
                 data['z'],          # z
-                0,                  # roll
-                0,                  # pitch
-                yaw_corrected_deg   # yaw
+                roll,               # roll
+                pitch,              # pitch
+                yaw                 # yaw
                 ]
             out_data.append(entry)
 
@@ -370,6 +401,13 @@ class ScanForm(QDialog):
         self.layout.addRow(cam_label, self.camera_orientation)
         self.layout.setRowVisible(self.camera_orientation, False)
 
+        stab_label, stab_info, stab_help = _make_label_with_help('Stabilisation d\'image', {'Insta 360': SCAN_FIELD_HELP['Insta 360']["image_stabilization"]})
+        self._help_info_labels.append((stab_info, stab_help))
+        self.image_stabilization = QCheckBox(self)
+        self.image_stabilization.setChecked(False)
+        self.layout.addRow(stab_label, self.image_stabilization)
+        self.layout.setRowVisible(self.image_stabilization, False)
+
         for info, _ in self._help_info_labels:
             info.installEventFilter(self)
 
@@ -403,6 +441,7 @@ class ScanForm(QDialog):
         self.layout.setRowVisible(self.fisheye_photos, new_text == 'Eagle' or new_text == 'Hémisphérique')
         self.layout.setRowVisible(self.hugin, new_text == 'Hémisphérique')
         self.layout.setRowVisible(self.camera_orientation, new_text == 'Insta 360')
+        self.layout.setRowVisible(self.image_stabilization, new_text == 'Insta 360')
         for info, help_by_type in self._help_info_labels:
             info.setToolTip(help_by_type.get(new_text, "") if help_by_type else "")
         self.adjustSize()
@@ -428,7 +467,8 @@ class ScanForm(QDialog):
             return [self.combo_box.currentText(),
                     self.trajectory.line_edit.text(),
                     self.pano_photos.line_edit.text(),
-                    self.camera_orientation.currentText()]
+                    self.camera_orientation.currentText(),
+                    self.image_stabilization.isChecked()]
 
         elif self.combo_box.currentText() == 'Eagle':
             return [self.combo_box.currentText(),

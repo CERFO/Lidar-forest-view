@@ -80,9 +80,9 @@ class GLWidget(QOpenGLWidget):
                 if hasattr(self, 'texture'):
                     self.texture_pending = True
                 self.model.setToIdentity()
-                self.model.rotate(image_roll, 0, 0, 1)
-                self.model.rotate(image_pitch, 1, 0, 0)
                 self.model.rotate(image_yaw, 0, 1, 0)
+                self.model.rotate(image_pitch, 0, 0, -1)
+                self.model.rotate(image_roll, 1, 0, 0)
                 self.update()
                 print(f"Image chargée : {image_path}")
                 logger.info(f"Image chargée : {image_path}")
