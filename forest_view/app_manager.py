@@ -145,6 +145,14 @@ class AppManager(QObject):
                                 )
                             if i % 50 == 0:
                                 QApplication.processEvents()
+                    elif item.is_dir() and item.name == 'tree_clouds':
+                        for i, cloud in enumerate(item.iterdir()):
+                            if cloud.is_file() and cloud.suffix in ['.laz', '.las']:
+                                self.lidar_window.load_point_cloud(
+                                    cloud, cloud.name
+                                )
+                            if i % 50 == 0:
+                                QApplication.processEvents()
                     else:
                         continue
                 QApplication.processEvents()

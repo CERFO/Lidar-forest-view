@@ -1,4 +1,5 @@
 import math
+import random
 
 import laspy as lp
 import numpy as np
@@ -42,6 +43,7 @@ class LidarWindow(QMainWindow):
 
     def load_point_cloud(self, point_cloud_path, actor_name):
         try:
+            color = ['red', 'orangered', 'cadmiumlemon', 'limegreen', 'mediumturquoise', 'royalblue', 'mediumorchid', 'deeppink']
             las = lp.read(point_cloud_path)
             pcd = np.vstack((las.x, las.y, las.z)).transpose()
             if self.translation is None:
@@ -49,7 +51,7 @@ class LidarWindow(QMainWindow):
             centered_pcd = pcd - self.translation
             actor = self.plotter.add_mesh(
                 centered_pcd, name=actor_name, style='points', point_size=2,
-                label=actor_name, pickable=False
+                label=actor_name, pickable=False , color=random.choice(color)
             )
             if not hasattr(self, 'cloud_group'):
                 self.cloud_group = []
@@ -81,6 +83,8 @@ class LidarWindow(QMainWindow):
         try:
             reader = get_reader(qsm_path)
             mesh = reader.read()
+            if self.translation is None:
+                self.translation = np.asarray(mesh.center)
             mesh = mesh.translate(-self.translation)
             actor = self.plotter.add_mesh(mesh, name=actor_name, pickable=False)
             if not hasattr(self, 'qsm_group'):
