@@ -96,7 +96,7 @@ class ProjectMaker(QWidget):
             if info[0] == 'GS-vision':
                 new_data, index = self.add_gs_vision_scan(info[1], info[2], index, project_path)
             elif info[0] == 'Insta 360':
-                new_data, index = self.add_insta_360_scan(info[1], info[2], info[3], info[4], index, project_path)
+                new_data, index = self.add_insta_360_scan(info[1], info[2], info[3], info[4], info[5], info[6], index, project_path)
             elif info[0] == 'Eagle':
                 new_data, index = self.add_eagle_scan(info[1], info[2], index, project_path)
             elif info[0] == 'Hémisphérique':
@@ -167,7 +167,7 @@ class ProjectMaker(QWidget):
             if info[0] == 'GS-vision':
                 new_data, index = self.add_gs_vision_scan(info[1], info[2], index, project_path)
             elif info[0] == 'Insta 360':
-                new_data, index = self.add_insta_360_scan(info[1], info[2], info[3], info[4], index, project_path)
+                new_data, index = self.add_insta_360_scan(info[1], info[2], info[3], info[4], info[5], info[6], index, project_path)
             elif info[0] == 'Eagle':
                 new_data, index = self.add_eagle_scan(info[1], info[2], index, project_path)
             elif info[0] == 'Hémisphérique':
@@ -177,24 +177,14 @@ class ProjectMaker(QWidget):
 
         self.export_data(total_data, project_path)
 
-    def add_insta_360_scan(self, traj_photos_path, photo_dir, camera_orientation, stabilized:bool, index, project_path):
+    def add_insta_360_scan(self, traj_photos_path, photo_dir,
+                           yaw_offset:float, pitch_offset:float, roll_offset:float,
+                           stabilized:bool, index, project_path):
         traj_photos = CSV_to_dict(traj_photos_path)
         out_data = []
 
         for data in traj_photos:
             entry_name = f'pano{index:04d}.jpg'
-            if camera_orientation == 'Gauche':
-                yaw_offset = -90
-            elif camera_orientation == 'Droite':
-                yaw_offset = 90
-            elif camera_orientation == 'Avant':
-                yaw_offset = 180
-            elif camera_orientation == 'Arrière':
-                yaw_offset = 0
-
-            pitch_offset = 23    # TODO ajouter une façon de contrôler ce paramètre
-            roll_offset = 0     # TODO ajouter une façon de contrôler ce paramètre
-
             if stabilized:
                 roll = float(data['roll']) + math.radians(roll_offset)
                 pitch = float(data['pitch']) + math.radians(pitch_offset)
@@ -348,7 +338,7 @@ class ScanForm(QDialog):
 
         self.combo_box = QComboBox()
         self.combo_box.insertItems(0, ['Sélectionner', 'GS-vision', 'Insta 360', 'Eagle', 'Hémisphérique'])
-        self.combo_box.currentTextChanged.connect(self.on_text_change)
+        self.combo_box.currentTextChanged.connect(self.on_scan_type_change)
         self.layout.addRow('Type de données', self.combo_box)
 
         traj_label, traj_info, traj_help = _make_label_with_help('Trajectoire photos', {
@@ -397,9 +387,25 @@ class ScanForm(QDialog):
         cam_label, cam_info, cam_help = _make_label_with_help('Orientation de la caméra', {'Insta 360': SCAN_FIELD_HELP['Insta 360']['camera_orientation']})
         self._help_info_labels.append((cam_info, cam_help))
         self.camera_orientation = QComboBox()
-        self.camera_orientation.insertItems(0, ['Gauche', 'Droite', 'Avant', 'Arrière'])
+        self.camera_orientation.insertItems(0, ['Gauche', 'Droite', 'Avant', 'Arrière', 'Personnalisé'])
+        self.camera_orientation.currentTextChanged.connect(self.on_camera_direction_change)
         self.layout.addRow(cam_label, self.camera_orientation)
         self.layout.setRowVisible(self.camera_orientation, False)
+
+        offset_label, offset_info, offset_help = _make_label_with_help('Décalage photo IMU', {'Insta 360':SCAN_FIELD_HELP['Insta 360']['angle_offsets']})
+        self._help_info_labels.append((offset_info, offset_help))
+        self.offset_box = QGroupBox(self)
+        self.offset_layout = QFormLayout(self.offset_box)
+        self.yaw_offset = QLineEdit('-90', self.offset_box)
+        self.pitch_offset = QLineEdit('23', self.offset_box)
+        self.roll_offset = QLineEdit('0', self.offset_box)
+        self.offset_layout.addRow('Yaw', self.yaw_offset)
+        self.offset_layout.addRow('Pitch', self.pitch_offset)
+        self.offset_layout.addRow('Roll', self.roll_offset)
+        self.offset_layout.setRowVisible(self.yaw_offset, False)
+        self.offset_box.setLayout(self.offset_layout)
+        self.layout.addRow(offset_label, self.offset_box)
+        self.layout.setRowVisible(self.offset_box, False)
 
         stab_label, stab_info, stab_help = _make_label_with_help('Stabilisation d\'image', {'Insta 360': SCAN_FIELD_HELP['Insta 360']["image_stabilization"]})
         self._help_info_labels.append((stab_info, stab_help))
@@ -433,7 +439,7 @@ class ScanForm(QDialog):
                     break
         return super().eventFilter(obj, event)
 
-    def on_text_change(self, new_text):
+    def on_scan_type_change(self, new_text):
         self.layout.setRowVisible(self.trajectory, new_text == 'Insta 360' or new_text == 'Eagle' or new_text == 'Hémisphérique')
         self.layout.setRowVisible(self.gs_vision, new_text == 'GS-vision')
         self.layout.setRowVisible(self.calibration, new_text == 'Hémisphérique')
@@ -441,10 +447,22 @@ class ScanForm(QDialog):
         self.layout.setRowVisible(self.fisheye_photos, new_text == 'Eagle' or new_text == 'Hémisphérique')
         self.layout.setRowVisible(self.hugin, new_text == 'Hémisphérique')
         self.layout.setRowVisible(self.camera_orientation, new_text == 'Insta 360')
+        self.layout.setRowVisible(self.offset_box, new_text == 'Insta 360')
         self.layout.setRowVisible(self.image_stabilization, new_text == 'Insta 360')
         for info, help_by_type in self._help_info_labels:
             info.setToolTip(help_by_type.get(new_text, "") if help_by_type else "")
         self.adjustSize()
+
+    def on_camera_direction_change(self, new_text):
+        self.offset_layout.setRowVisible(self.yaw_offset, new_text == 'Personnalisé')
+        if new_text == 'Gauche':
+            self.yaw_offset.setText('-90')
+        elif new_text == 'Droite':
+            self.yaw_offset.setText('90')
+        elif new_text == 'Avant':
+            self.yaw_offset.setText('180')
+        elif new_text == 'Arrière':
+            self.yaw_offset.setText('0')
 
     def submit_data(self): # TODO ajouter une sécurité contre les formulaires incomplets
         for row in range(self.layout.rowCount()):
@@ -467,7 +485,9 @@ class ScanForm(QDialog):
             return [self.combo_box.currentText(),
                     self.trajectory.line_edit.text(),
                     self.pano_photos.line_edit.text(),
-                    self.camera_orientation.currentText(),
+                    float(self.yaw_offset.text()),
+                    float(self.pitch_offset.text()),
+                    float(self.roll_offset.text()),
                     self.image_stabilization.isChecked()]
 
         elif self.combo_box.currentText() == 'Eagle':
