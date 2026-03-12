@@ -80,32 +80,67 @@ class ProjectMaker(QWidget):
         os.makedirs(os.path.join(project_path, 'panoramas'), exist_ok=True)
 
         # Saisie du nombre des scans à incorporer
-        num_scans, _ = QInputDialog.getInt(self, 'Nombre de scans', 'Entrez le nombre de scans à incorporer :', 1, 1, 100)
+        num_scans, ok = QInputDialog.getInt(self, 'Nombre de scans', 'Entrez le nombre de scans à incorporer :', 1, 1, 100)
+        while not ok:
+            reply = QMessageBox.question(self, 'Vous partez déjà?',
+                                        'Êtes-vous sûr de vouloir quitter?',
+                                        QMessageBox.Yes | QMessageBox.No,
+                                        QMessageBox.No)
+            if reply == QMessageBox.Yes:
+                shutil.rmtree(project_path, ignore_errors=True)
+                sys.exit()
+            else:
+                num_scans, ok = QInputDialog.getInt(self, 'Nombre de scans', 'Entrez le nombre de scans à incorporer :', 1, 1, 100)
+
         total_data = []
         scans_info = []
-
         # Pour chaque scan, on demande les informations nécessaires, puis on traite les photos 
-        for i in range(num_scans):
-            scan_form = ScanForm(i+1)
-            scan_form.exec()
+        try:
+            for i in range(num_scans):
+                scan_form = ScanForm(i+1)
+                scan_form.exec()
+                scans_info.append(scan_form.get_info())
 
-            scans_info.append(scan_form.get_info())
-        
-        index = 0
-        for info in scans_info:
-            if info[0] == 'GS-vision':
-                new_data, index = self.add_gs_vision_scan(info[1], info[2], index, project_path)
-            elif info[0] == 'Insta 360':
-                new_data, index = self.add_insta_360_scan(info[1], info[2], info[3], info[4], info[5], index, project_path)
-            elif info[0] == 'Eagle':
-                new_data, index = self.add_eagle_scan(info[1], info[2], index, project_path)
-            elif info[0] == 'Hémisphérique':
-                new_data, index = self.add_plain_scan(info[1], info[2], info[3], index, project_path, info[4])
+            progress_bar = QProgressDialog('Traitement des scans', 'Cancel', 0, len(scans_info))
+            progress_bar.setValue(0)
+            progress_bar.setMinimumDuration(0)
+            progress_bar.show()
+            QApplication.processEvents()
 
-            total_data.extend(new_data)
+            index = 0
+            for i, info in enumerate(scans_info):
+                if progress_bar.wasCanceled():
+                    break
+                if info[0] == 'GS-vision':
+                    new_data, index = self.add_gs_vision_scan(info[1], info[2], index, project_path)
+                elif info[0] == 'Insta 360':
+                    new_data, index = self.add_insta_360_scan(info[1], info[2], info[3], info[4], info[5], index, project_path)
+                elif info[0] == 'Eagle':
+                    new_data, index = self.add_eagle_scan(info[1], info[2], index, project_path)
+                elif info[0] == 'Hémisphérique':
+                    new_data, index = self.add_plain_scan(info[1], info[2], info[3], index, project_path, info[4])
 
-        self.export_data(total_data, project_path)
+                total_data.extend(new_data)
+                progress_bar.setValue(i+1)
+                QApplication.processEvents()
 
+            if not progress_bar.wasCanceled():
+                self.export_data(total_data, project_path)
+
+        except Exception as e:
+            if  'progress_bar' in locals():
+                progress_bar.close()
+            QMessageBox.critical(self, 'Erreur', f'Une erreur est survenu pendant la création de projet : {e}')
+            shutil.rmtree(project_path, ignore_errors=True)
+        else:
+            if  'progress_bar' in locals():
+                if progress_bar.wasCanceled():
+                    QMessageBox.information(self, 'Traitement annulé', 'Le traitement des images à été annulé')
+                    shutil.rmtree(project_path, ignore_errors=True)
+                else:
+                    progress_bar.close()
+                    QMessageBox.information(self, 'Création réussie!', f'La création de projet est réussie. Vous trouverez votre projet à {project_path}')    
+    
     def add_scans(self):
         # Saisie de l'emplacement du projet (avec validation pour projets incomplets)
         while True:
@@ -152,30 +187,63 @@ class ProjectMaker(QWidget):
             break
 
         # Saisie du nombre des scans à incorporer
-        num_scans, _ = QInputDialog.getInt(self, 'Nombre de scans', 'Entrez le nombre de scans à incorporer :', 1, 1, 100)
+        num_scans, ok = QInputDialog.getInt(self, 'Nombre de scans', 'Entrez le nombre de scans à incorporer :', 1, 1, 100)
+        while not ok:
+            reply = QMessageBox.question(self, 'Vous partez déjà?',
+                                        'Êtes-vous sûr de vouloir quitter?',
+                                        QMessageBox.Yes | QMessageBox.No,
+                                        QMessageBox.No)
+            if reply == QMessageBox.Yes:
+                sys.exit()
+            else:
+                num_scans, ok = QInputDialog.getInt(self, 'Nombre de scans', 'Entrez le nombre de scans à incorporer :', 1, 1, 100)
+
         _, total_data = readCSV(os.path.join(project_path, 'photo_info.csv'))
         scans_info = []
+        # Pour chaque scan, on demande les informations nécessaires, puis on traite les photos 
+        try:
+            for i in range(num_scans):
+                scan_form = ScanForm(i+1)
+                scan_form.exec()
+                scans_info.append(scan_form.get_info())
 
-        for i in range(num_scans):
-            scan_form = ScanForm(i+1)
-            scan_form.exec()
+            progress_bar = QProgressDialog('Traitement des scans', 'Cancel', 0, len(scans_info))
+            progress_bar.setValue(0)
+            progress_bar.setMinimumDuration(0)
+            progress_bar.show()
+            QApplication.processEvents()
 
-            scans_info.append(scan_form.get_info())
+            index = len(total_data)
+            for i, info in enumerate(scans_info):
+                if progress_bar.wasCanceled():
+                    break
+                if info[0] == 'GS-vision':
+                    new_data, index = self.add_gs_vision_scan(info[1], info[2], index, project_path)
+                elif info[0] == 'Insta 360':
+                    new_data, index = self.add_insta_360_scan(info[1], info[2], info[3], info[4], info[5], index, project_path)
+                elif info[0] == 'Eagle':
+                    new_data, index = self.add_eagle_scan(info[1], info[2], index, project_path)
+                elif info[0] == 'Hémisphérique':
+                    new_data, index = self.add_plain_scan(info[1], info[2], info[3], index, project_path, info[4])
 
-        index = len(total_data)
-        for info in scans_info:
-            if info[0] == 'GS-vision':
-                new_data, index = self.add_gs_vision_scan(info[1], info[2], index, project_path)
-            elif info[0] == 'Insta 360':
-                new_data, index = self.add_insta_360_scan(info[1], info[2], info[3], info[4], info[5], index, project_path)
-            elif info[0] == 'Eagle':
-                new_data, index = self.add_eagle_scan(info[1], info[2], index, project_path)
-            elif info[0] == 'Hémisphérique':
-                new_data, index = self.add_plain_scan(info[1], info[2], info[3], index, project_path, info[4])
+                total_data.extend(new_data)
+                progress_bar.setValue(i+1)
+                QApplication.processEvents()
 
-            total_data.extend(new_data)
+            if not progress_bar.wasCanceled():
+                self.export_data(total_data, project_path)
 
-        self.export_data(total_data, project_path)
+        except Exception as e:
+            if  'progress_bar' in locals():
+                progress_bar.close()
+            QMessageBox.critical(self, 'Erreur', f'Une erreur est survenu pendant la création de projet : {e}')
+        else:
+            if  'progress_bar' in locals():
+                if progress_bar.wasCanceled():
+                    QMessageBox.information(self, 'Traitement annulé', 'Le traitement des images à été annulé')
+                else:
+                    progress_bar.close()
+                    QMessageBox.information(self, 'Création réussie!', f'La création de projet est réussie. Vous trouverez votre projet à {project_path}')    
 
     def add_insta_360_scan(self, traj_photos_path, photo_dir,
                            ypr_offsets, translation:QVector4D,
