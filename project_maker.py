@@ -96,7 +96,7 @@ class ProjectMaker(QWidget):
             if info[0] == 'GS-vision':
                 new_data, index = self.add_gs_vision_scan(info[1], info[2], index, project_path)
             elif info[0] == 'Insta 360':
-                new_data, index = self.add_insta_360_scan(info[1], info[2], info[3], info[4], info[5], info[6], index, project_path)
+                new_data, index = self.add_insta_360_scan(info[1], info[2], info[3], info[4], info[5], index, project_path)
             elif info[0] == 'Eagle':
                 new_data, index = self.add_eagle_scan(info[1], info[2], index, project_path)
             elif info[0] == 'Hémisphérique':
@@ -167,7 +167,7 @@ class ProjectMaker(QWidget):
             if info[0] == 'GS-vision':
                 new_data, index = self.add_gs_vision_scan(info[1], info[2], index, project_path)
             elif info[0] == 'Insta 360':
-                new_data, index = self.add_insta_360_scan(info[1], info[2], info[3], info[4], info[5], info[6], index, project_path)
+                new_data, index = self.add_insta_360_scan(info[1], info[2], info[3], info[4], info[5], index, project_path)
             elif info[0] == 'Eagle':
                 new_data, index = self.add_eagle_scan(info[1], info[2], index, project_path)
             elif info[0] == 'Hémisphérique':
@@ -178,13 +178,41 @@ class ProjectMaker(QWidget):
         self.export_data(total_data, project_path)
 
     def add_insta_360_scan(self, traj_photos_path, photo_dir,
-                           yaw_offset:float, pitch_offset:float, roll_offset:float,
+                           ypr_offsets, translation:QVector4D,
                            stabilized:bool, index, project_path):
+        def global_rotate(mat, angle, ux, uy, uz):
+            r = QMatrix4x4()
+            r.rotate(angle, ux,uy,uz)
+            mat = r * mat
+            return mat
+
         traj_photos = CSV_to_dict(traj_photos_path)
         out_data = []
 
+        yaw_offset = ypr_offsets[0]
+        pitch_offset = ypr_offsets[1]
+        roll_offset = ypr_offsets[2]
+
         for data in traj_photos:
             entry_name = f'pano{index:04d}.jpg'
+            x = float(data['x'])
+            y = float(data['y'])
+            z = float(data['z'])
+         
+            roll = float(data['roll_deg']) 
+            pitch = float(data['pitch_deg'])
+            yaw = float(data['yaw_deg'])
+
+            rp = QMatrix4x4()
+            rp.rotate(yaw, 0,0,1)
+            rp.rotate(pitch, 0,1,0)
+            rp.rotate(roll, 1,0,0)
+
+            p = rp * translation
+            x += p.x()
+            y += p.y()
+            z += p.z()
+
             if stabilized:
                 roll = float(data['roll']) + math.radians(roll_offset)
                 pitch = float(data['pitch']) + math.radians(pitch_offset)
@@ -197,16 +225,6 @@ class ProjectMaker(QWidget):
                 pitch = 0
                 roll = 0
             else :
-                def global_rotate(mat, angle, ux, uy, uz):
-                    r = QMatrix4x4()
-                    r.rotate(angle, ux,uy,uz)
-                    mat = r * mat
-                    return mat
-                
-                roll = float(data['roll_deg']) 
-                pitch = float(data['pitch_deg'])
-                yaw = float(data['yaw_deg'])
-
                 m = QMatrix4x4()
                 m = global_rotate(m, yaw_offset, 0,0,1)
                 m = global_rotate(m, pitch_offset, 0,1,0)
@@ -222,9 +240,9 @@ class ProjectMaker(QWidget):
             entry = [
                 entry_name,         # image
                 data['X..world_time'],  # timestamp
-                data['x'],          # x
-                data['y'],          # y
-                data['z'],          # z
+                x,                  # x
+                y,                  # y
+                z,                  # z
                 roll,               # roll
                 pitch,              # pitch
                 yaw                 # yaw
@@ -392,10 +410,11 @@ class ScanForm(QDialog):
         self.layout.addRow(cam_label, self.camera_orientation)
         self.layout.setRowVisible(self.camera_orientation, False)
 
-        offset_label, offset_info, offset_help = _make_label_with_help('Décalage photo IMU', {'Insta 360':SCAN_FIELD_HELP['Insta 360']['angle_offsets']})
+        offset_label, offset_info, offset_help = _make_label_with_help('Décalage photo lidar', {'Insta 360':SCAN_FIELD_HELP['Insta 360']['offsets']})
         self._help_info_labels.append((offset_info, offset_help))
         self.offset_box = QGroupBox(self)
         self.offset_layout = QFormLayout(self.offset_box)
+        # Rotation
         self.yaw_offset = QLineEdit('-90', self.offset_box)
         self.pitch_offset = QLineEdit('23', self.offset_box)
         self.roll_offset = QLineEdit('0', self.offset_box)
@@ -403,6 +422,13 @@ class ScanForm(QDialog):
         self.offset_layout.addRow('Pitch', self.pitch_offset)
         self.offset_layout.addRow('Roll', self.roll_offset)
         self.offset_layout.setRowVisible(self.yaw_offset, False)
+        # Translation
+        self.x_offset = QLineEdit('0', self.offset_box)
+        self.y_offset = QLineEdit('0', self.offset_box)
+        self.z_offset = QLineEdit('0.25', self.offset_box)
+        self.offset_layout.addRow('X', self.x_offset)
+        self.offset_layout.addRow('Y', self.y_offset)
+        self.offset_layout.addRow('Z', self.z_offset)
         self.offset_box.setLayout(self.offset_layout)
         self.layout.addRow(offset_label, self.offset_box)
         self.layout.setRowVisible(self.offset_box, False)
@@ -485,9 +511,13 @@ class ScanForm(QDialog):
             return [self.combo_box.currentText(),
                     self.trajectory.line_edit.text(),
                     self.pano_photos.line_edit.text(),
-                    float(self.yaw_offset.text()),
-                    float(self.pitch_offset.text()),
-                    float(self.roll_offset.text()),
+                    [float(self.yaw_offset.text()),
+                        float(self.pitch_offset.text()),
+                        float(self.roll_offset.text())],
+                    QVector4D(float(self.x_offset.text()),
+                              float(self.y_offset.text()),
+                              float(self.z_offset.text()),
+                              1),
                     self.image_stabilization.isChecked()]
 
         elif self.combo_box.currentText() == 'Eagle':
