@@ -109,18 +109,22 @@ class ProjectMaker(QWidget):
 
             index = 0
             for i, info in enumerate(scans_info):
+                QApplication.processEvents()
                 if progress_bar.wasCanceled():
                     break
                 if info[0] == 'GS-vision':
                     new_data, index = self.add_gs_vision_scan(info[1], info[2], index, project_path)
                 elif info[0] == 'Insta 360':
-                    new_data, index = self.add_insta_360_scan(info[1], info[2], info[3], info[4], info[5], index, project_path)
+                    new_data, index = self.add_insta_360_scan(info[1], info[2], info[4], info[5], info[6], index, project_path)
                 elif info[0] == 'Eagle':
                     new_data, index = self.add_eagle_scan(info[1], info[2], index, project_path)
                 elif info[0] == 'Hémisphérique':
-                    new_data, index = self.add_plain_scan(info[1], info[2], info[3], index, project_path, info[4])
+                    new_data, index = self.add_plain_scan(info[1], info[4], info[2], index, project_path, info[5])
 
                 total_data.extend(new_data)
+                src_path = info[3]
+                dst_path = os.path.join(project_path, os.path.basename(info[3]))
+                shutil.copy2(src_path, dst_path)
                 progress_bar.setValue(i+1)
                 QApplication.processEvents()
 
@@ -215,18 +219,22 @@ class ProjectMaker(QWidget):
 
             index = len(total_data)
             for i, info in enumerate(scans_info):
+                QApplication.processEvents()
                 if progress_bar.wasCanceled():
                     break
                 if info[0] == 'GS-vision':
                     new_data, index = self.add_gs_vision_scan(info[1], info[2], index, project_path)
                 elif info[0] == 'Insta 360':
-                    new_data, index = self.add_insta_360_scan(info[1], info[2], info[3], info[4], info[5], index, project_path)
+                    new_data, index = self.add_insta_360_scan(info[1], info[2], info[4], info[5], info[6], index, project_path)
                 elif info[0] == 'Eagle':
                     new_data, index = self.add_eagle_scan(info[1], info[2], index, project_path)
                 elif info[0] == 'Hémisphérique':
-                    new_data, index = self.add_plain_scan(info[1], info[2], info[3], index, project_path, info[4])
+                    new_data, index = self.add_plain_scan(info[1], info[4], info[2], index, project_path, info[5])
 
                 total_data.extend(new_data)
+                src_path = info[3]
+                dst_path = os.path.join(project_path, os.path.basename(info[3]))
+                shutil.copy2(src_path, dst_path)
                 progress_bar.setValue(i+1)
                 QApplication.processEvents()
 
@@ -266,10 +274,10 @@ class ProjectMaker(QWidget):
             x = float(data['x'])
             y = float(data['y'])
             z = float(data['z'])
-         
-            roll = float(data['roll_deg']) 
-            pitch = float(data['pitch_deg'])
-            yaw = float(data['yaw_deg'])
+
+            roll = math.degrees(float(data.get('roll')))
+            pitch = math.degrees(float(data.get('pitch')))
+            yaw = math.degrees(float(data.get('yaw')))
 
             rp = QMatrix4x4()
             rp.rotate(yaw, 0,0,1)
@@ -464,6 +472,12 @@ class ScanForm(QDialog):
         self.layout.addRow(fisheye_label, self.fisheye_photos)
         self.layout.setRowVisible(self.fisheye_photos, False)
 
+        lidar_label, lidar_info, lidar_help = _make_label_with_help('Nuage de points', {t: SCAN_FIELD_HELP[t]['lidar_cloud'] for t in ('GS-vision', 'Insta 360', 'Eagle', 'Hémisphérique')})
+        self._help_info_labels.append((lidar_info, lidar_help))
+        self.lidar_cloud = BrowseLayout('Nuage de points', 'point_cloud', 'file', self.memory)
+        self.layout.addRow(lidar_label, self.lidar_cloud)
+        self.layout.setRowVisible(self.lidar_cloud, False)
+
         hugin_label, hugin_info, hugin_help = _make_label_with_help('Racine Hugin', {'Hémisphérique': SCAN_FIELD_HELP['Hémisphérique']['hugin']})
         self._help_info_labels.append((hugin_info, hugin_help))
         self.hugin = BrowseLayout('Racine Hugin', 'hugin_root', 'répertoire', self.memory)
@@ -539,6 +553,7 @@ class ScanForm(QDialog):
         self.layout.setRowVisible(self.calibration, new_text == 'Hémisphérique')
         self.layout.setRowVisible(self.pano_photos, new_text == 'GS-vision' or new_text == 'Insta 360')
         self.layout.setRowVisible(self.fisheye_photos, new_text == 'Eagle' or new_text == 'Hémisphérique')
+        self.layout.setRowVisible(self.lidar_cloud, new_text != 'Sélectionner')
         self.layout.setRowVisible(self.hugin, new_text == 'Hémisphérique')
         self.layout.setRowVisible(self.camera_orientation, new_text == 'Insta 360')
         self.layout.setRowVisible(self.offset_box, new_text == 'Insta 360')
@@ -573,12 +588,14 @@ class ScanForm(QDialog):
         if self.combo_box.currentText() == 'GS-vision':
             return [self.combo_box.currentText(),
                     self.gs_vision.line_edit.text(),
-                    self.pano_photos.line_edit.text()]
+                    self.pano_photos.line_edit.text(),
+                    self.lidar_cloud.line_edit.text()]
 
         elif self.combo_box.currentText() == 'Insta 360':
             return [self.combo_box.currentText(),
                     self.trajectory.line_edit.text(),
                     self.pano_photos.line_edit.text(),
+                    self.lidar_cloud.line_edit.text(),
                     [float(self.yaw_offset.text()),
                         float(self.pitch_offset.text()),
                         float(self.roll_offset.text())],
@@ -591,13 +608,15 @@ class ScanForm(QDialog):
         elif self.combo_box.currentText() == 'Eagle':
             return [self.combo_box.currentText(),
                     self.trajectory.line_edit.text(),
-                    self.fisheye_photos.line_edit.text()]
+                    self.fisheye_photos.line_edit.text(),
+                    self.lidar_cloud.line_edit.text()]
 
         elif self.combo_box.currentText() == 'Hémisphérique':
             return [self.combo_box.currentText(),
                     self.trajectory.line_edit.text(),
-                    self.calibration.line_edit.text(),
                     self.fisheye_photos.line_edit.text(),
+                    self.lidar_cloud.line_edit.text(),
+                    self.calibration.line_edit.text(),
                     self.hugin.line_edit.text()]
 
 class BrowseLayout(QHBoxLayout):

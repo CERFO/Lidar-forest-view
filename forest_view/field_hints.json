@@ -13,22 +13,26 @@
     "Insta 360": {
       "trajectory": "Fichier CSV (virgule) avec en-tête. Colonnes requises : name, x, y, z, roll, pitch, yaw, X..world_time. Une ligne par photo ; la colonne « name » doit contenir le nom du fichier image dans le dossier Photos panoramiques. Voir docs/formats_scan_insta360.md pour le détail.",
       "pano_photos": "Répertoire contenant les images panoramiques (ex. JPG). Chaque nom de fichier doit apparaître dans la colonne « name » du CSV de trajectoire.",
+      "lidar_cloud": "Fichier .las ou .laz",
       "camera_orientation": "Direction de la caméra par rapport au déplacement : Gauche (-90°), Droite (+90°), Avant (180°), Arrière (0°).\nChoisir selon le côté du lidar le plus souvent au centre des images.\nSi personnalisé : entrer la valeur au «Yaw» de Décalage photo lidar.",
       "image_stabilization": "Est-ce que la ligne d'horizon est stabilisée sur vos photos (flow state)",
       "offsets" : "Yaw, pitch et roll : angles en degrés à appliquer à la photo pour amener la tête lidar sur l'axe des X+.\nLes valeurs par défaut correspondent à un capteur FARO Orbis.\nLes rotations sont calculées selon une référence main droite.\n\nX, Y, Z : translations en mètre entre la tête lidar et la caméra lorsque la tête lidar est allignée avec l'axe X+."
     },
     "GS-vision": {
       "gs_vision": "Fichier JSON d'export GS-Vision contenant la clé « images » (chemins et positions).",
-      "pano_photos": "Répertoire contenant les images panoramiques référencées dans le fichier GS-Vision."
+      "pano_photos": "Répertoire contenant les images panoramiques référencées dans le fichier GS-Vision.",
+      "lidar_cloud": "Fichier .las ou .laz"
     },
     "Eagle": {
       "trajectory": "Fichier de trajectoire (format attendu par le flux Eagle).",
-      "fisheye_photos": "Répertoire contenant les paires de photos fisheye."
+      "fisheye_photos": "Répertoire contenant les quatuors de photos fisheye.",
+      "lidar_cloud": "Fichier .las ou .laz"
     },
     "Hémisphérique": {
       "trajectory": "Fichier de trajectoire (séparateur espace), avec en-tête.",
       "calibration": "Fichier JSON de calibration caméra.",
       "fisheye_photos": "Répertoire contenant les paires de photos fisheye (F/R).",
+      "lidar_cloud": "Fichier .las ou .laz",
       "hugin": "Répertoire racine de l'installation Hugin (ex. C:\\Program Files\\Hugin)."
     }
   }
