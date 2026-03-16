@@ -121,13 +121,12 @@ class AppManager(QObject):
         overlay.raise_()
         QApplication.processEvents()
 
-        project_dir = Path(self.form.paths['project_dir'])
         tree_info = self.tree_info
         photo_info = self.photo_info
 
         def _run_loading():
             try:
-                for i, item in enumerate(project_dir.rglob('*')):
+                for i, item in enumerate(self.project_dir.rglob('*')):
                     if item.suffix in ['.laz', '.las']:
                         self.lidar_window.load_point_cloud(
                             item, item.name
@@ -260,6 +259,7 @@ class AppManager(QObject):
         self.form.raise_()
         self.form.activateWindow()
         result = self.form.exec()
+        self.project_dir = Path(self.form.paths['project_dir'])
         if result != QDialog.DialogCode.Accepted:
             return
         self._open_navigation()
