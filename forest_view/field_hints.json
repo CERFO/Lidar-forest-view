@@ -16,7 +16,7 @@
       "lidar_cloud": "Fichier .las ou .laz",
       "camera_orientation": "Direction de la caméra par rapport au déplacement : Gauche (-90°), Droite (+90°), Avant (180°), Arrière (0°).\nChoisir selon le côté du lidar le plus souvent au centre des images.\nSi personnalisé : entrer la valeur au «Yaw» de Décalage photo lidar.",
       "image_stabilization": "Est-ce que la ligne d'horizon est stabilisée sur vos photos (flow state)",
-      "offsets" : "Yaw, pitch et roll : angles en degrés à appliquer à la photo pour amener la tête lidar sur l'axe des X+.\nLes valeurs par défaut correspondent à un capteur FARO Orbis.\nLes rotations sont calculées selon une référence main droite.\n\nX, Y, Z : translations en mètre entre la tête lidar et la caméra lorsque la tête lidar est allignée avec l'axe X+."
+      "offsets" : "Yaw, pitch et roll : angles en degrés à appliquer à la photo pour aligner la photo au référentiel de la trajectoire.\nLes valeurs par défaut correspondent à un capteur FARO Orbis.\nLes rotations sont calculées selon une référence main droite.\n\nX, Y et Z : translations en mètre entre la référence de la trajectoire et la caméra dans l'espace local (IMU)."
     },
     "GS-vision": {
       "gs_vision": "Fichier JSON d'export GS-Vision contenant la clé « images » (chemins et positions).",
