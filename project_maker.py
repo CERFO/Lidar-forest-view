@@ -143,8 +143,8 @@ class ProjectMaker(QWidget):
                     shutil.rmtree(project_path, ignore_errors=True)
                 else:
                     progress_bar.close()
-                    QMessageBox.information(self, 'Création réussie!', f'La création de projet est réussie. Vous trouverez votre projet à {project_path}')    
-    
+                    QMessageBox.information(self, 'Création réussie!', f'La création de projet est réussie. Vous trouverez votre projet à {project_path}')
+
     def add_scans(self):
         # Saisie de l'emplacement du projet (avec validation pour projets incomplets)
         while True:
@@ -251,7 +251,7 @@ class ProjectMaker(QWidget):
                     QMessageBox.information(self, 'Traitement annulé', 'Le traitement des images à été annulé')
                 else:
                     progress_bar.close()
-                    QMessageBox.information(self, 'Création réussie!', f'La création de projet est réussie. Vous trouverez votre projet à {project_path}')    
+                    QMessageBox.information(self, 'Création réussie!', f'La création de projet est réussie. Vous trouverez votre projet à {project_path}')
 
     def add_insta_360_scan(self, traj_photos_path, photo_dir,
                            ypr_offsets, translation:QVector4D,
@@ -497,17 +497,41 @@ class ScanForm(QDialog):
         self.offset_box = QGroupBox(self)
         self.offset_layout = QFormLayout(self.offset_box)
         # Rotation
-        self.yaw_offset = QLineEdit('-90', self.offset_box)
-        self.pitch_offset = QLineEdit('23', self.offset_box)
-        self.roll_offset = QLineEdit('0', self.offset_box)
+        self.yaw_offset = QDoubleSpinBox(self.offset_box)
+        self.yaw_offset.setMinimum(-180)
+        self.yaw_offset.setMaximum(360)
+        self.yaw_offset.setValue(-90)
+        self.yaw_offset.setSuffix('°')
+        self.pitch_offset = QDoubleSpinBox(self.offset_box)
+        self.pitch_offset.setMinimum(-90)
+        self.pitch_offset.setMaximum(90)
+        self.pitch_offset.setValue(23)
+        self.pitch_offset.setSuffix('°')
+        self.roll_offset = QDoubleSpinBox(self.offset_box)
+        self.roll_offset.setMinimum(-90)
+        self.roll_offset.setMaximum(90)
+        self.roll_offset.setValue(23)
+        self.roll_offset.setSuffix('°')
         self.offset_layout.addRow('Yaw', self.yaw_offset)
         self.offset_layout.addRow('Pitch', self.pitch_offset)
         self.offset_layout.addRow('Roll', self.roll_offset)
         self.offset_layout.setRowVisible(self.yaw_offset, False)
         # Translation
-        self.x_offset = QLineEdit('0', self.offset_box)
-        self.y_offset = QLineEdit('0', self.offset_box)
-        self.z_offset = QLineEdit('0.25', self.offset_box)
+        self.x_offset = QDoubleSpinBox(self.offset_box)
+        self.x_offset.setMinimum(-2)
+        self.x_offset.setMaximum(2)
+        self.x_offset.setValue(0)
+        self.x_offset.setSuffix(' m')
+        self.y_offset = QDoubleSpinBox(self.offset_box)
+        self.y_offset.setMinimum(-2)
+        self.y_offset.setMaximum(2)
+        self.y_offset.setValue(0)
+        self.y_offset.setSuffix(' m')
+        self.z_offset = QDoubleSpinBox(self.offset_box)
+        self.z_offset.setMinimum(-2)
+        self.z_offset.setMaximum(2)
+        self.z_offset.setValue(0.25)
+        self.z_offset.setSuffix(' m')
         self.offset_layout.addRow('X', self.x_offset)
         self.offset_layout.addRow('Y', self.y_offset)
         self.offset_layout.addRow('Z', self.z_offset)
@@ -565,13 +589,13 @@ class ScanForm(QDialog):
     def on_camera_direction_change(self, new_text):
         self.offset_layout.setRowVisible(self.yaw_offset, new_text == 'Personnalisé')
         if new_text == 'Gauche':
-            self.yaw_offset.setText('-90')
+            self.yaw_offset.setValue(-90)
         elif new_text == 'Droite':
-            self.yaw_offset.setText('90')
+            self.yaw_offset.setValue(90)
         elif new_text == 'Avant':
-            self.yaw_offset.setText('180')
+            self.yaw_offset.setValue(180)
         elif new_text == 'Arrière':
-            self.yaw_offset.setText('0')
+            self.yaw_offset.setValue(0)
 
     def submit_data(self): # TODO ajouter une sécurité contre les formulaires incomplets
         for row in range(self.layout.rowCount()):
@@ -596,12 +620,12 @@ class ScanForm(QDialog):
                     self.trajectory.line_edit.text(),
                     self.pano_photos.line_edit.text(),
                     self.lidar_cloud.line_edit.text(),
-                    [float(self.yaw_offset.text()),
-                        float(self.pitch_offset.text()),
-                        float(self.roll_offset.text())],
-                    QVector4D(float(self.x_offset.text()),
-                              float(self.y_offset.text()),
-                              float(self.z_offset.text()),
+                    [float(self.yaw_offset.value()),
+                        float(self.pitch_offset.value()),
+                        float(self.roll_offset.value())],
+                    QVector4D(float(self.x_offset.value()),
+                              float(self.y_offset.value()),
+                              float(self.z_offset.value()),
                               1),
                     self.image_stabilization.isChecked()]
 
