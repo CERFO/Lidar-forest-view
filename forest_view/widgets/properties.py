@@ -1,14 +1,7 @@
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtWidgets import QHeaderView, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget
 
-
-def _tree_data_match(a, b):
-    """Compare deux dicts tree_data (sans x, y, z). Utilise No_tige si présent, sinon égalité des champs."""
-    if not a or not b:
-        return a == b
-    if 'No_tige' in a and 'No_tige' in b:
-        return a.get('No_tige') == b.get('No_tige')
-    return a == b
+from forest_view.utils import _tree_data_match
 
 
 class ProprietyWidget(QWidget):

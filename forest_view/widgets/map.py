@@ -14,6 +14,8 @@ from PyQt6.QtWidgets import (
 )
 
 from forest_view.crs_utils import data_to_wgs84
+from forest_view.logger import get_logger
+from forest_view.utils import _tree_data_match
 from forest_view.widgets.map_items import PhotoPoint, TreePoint
 
 TILE_SIZE = 256
@@ -65,15 +67,6 @@ def _fetch_tile(z, x, y, url_template):
     except Exception:
         pass
     return None
-
-
-def _tree_data_match(a, b):
-    """Compare deux dicts tree_data. Utilise No_tige si présent, sinon égalité."""
-    if not a or not b:
-        return a == b
-    if 'No_tige' in a and 'No_tige' in b:
-        return a.get('No_tige') == b.get('No_tige')
-    return a == b
 
 
 class Pointer(QGraphicsPolygonItem, QObject):
@@ -346,7 +339,6 @@ class CustomMapWidget(QGraphicsView):
         self.scene.clear()
         self.pointer = None
         self.create_pointer()
-        self.new_pointer_position.connect(self.pointer.setPos)
         self.last_selection = []
         self.scene.clearSelection()
 

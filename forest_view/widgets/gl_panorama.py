@@ -214,13 +214,16 @@ class GLWidget(QOpenGLWidget):
             and self.selected_photo_coords is not None):
 
             v = self.selected_tree_coords -  self.selected_photo_coords
-            yaw = math.atan(v[0]/v[1]) if v[1] > 0 else math.atan(v[0]/v[1]) + math.pi
+            yaw = math.atan2(v[0], v[1])
             self.yaw = math.degrees(yaw)
 
             if aimed_z is None:
                 pitch = math.radians(self.pitch)
             else:
-                pitch = -math.atan((aimed_z - self.selected_photo_coords[2])/math.sqrt(v[0]**2 + v[1]**2))
+                distance_xy = math.hypot(v[0], v[1])
+                if distance_xy < 1e-9:
+                    return
+                pitch = -math.atan((aimed_z - self.selected_photo_coords[2]) / distance_xy)
                 self.pitch = math.degrees(pitch)
 
             self.update()
