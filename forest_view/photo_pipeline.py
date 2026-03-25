@@ -35,10 +35,9 @@ def get_valid_pairs(directory):
     valid_pairs = []
     for pair in photo_pairs.values():
         try:
-            img1 = Image.open(os.path.join(directory, pair['F'][0]))
-            img2 = Image.open(os.path.join(directory, pair['R'][0]))
-            img1.verify()
-            img2.verify()
+            # verify() closes the file handle, so open fresh copies just for the check
+            Image.open(os.path.join(directory, pair['F'][0])).verify()
+            Image.open(os.path.join(directory, pair['R'][0])).verify()
         except Exception:
             continue
         if len(pair) == 2 and 'F' in pair and 'R' in pair:
@@ -109,59 +108,73 @@ def stitch_photos(pair_list, outdirectory, calibration=None, hugin_root=r'C:\Pro
                 'lR': 50, 'rR': 1870, 'tR': 50, 'bR': 1870
             }
 
+    _temp_files = ('projet1.pto', 'projet2.pto', 'projet_merge.pto')
+
+    def _run(cmd):
+        result = subprocess.run(cmd, capture_output=True)
+        if result.returncode != 0:
+            tool = os.path.basename(cmd[0])
+            stderr = result.stderr.decode(errors='replace').strip()
+            logger.error('%s a échoué (code %d): %s', tool, result.returncode, stderr)
+            raise RuntimeError(f'{tool} a échoué (code {result.returncode}): {stderr}')
+
     for i, pair in enumerate(pair_list):
         imgF_path = pair[0][0]
         imgR_path = pair[0][1]
-        subprocess.run([
-            os.path.join(hugin_root, 'bin', 'pto_gen.exe'),
-            '-o', 'projet1.pto', '-p', '2',
-            '-c', f'{crop_values["lF"]},{crop_values["rF"]},{crop_values["tF"]},{crop_values["bF"]}',
-            imgF_path
-        ])
-        subprocess.run([
-            os.path.join(hugin_root, 'bin', 'pto_gen.exe'),
-            '-o', 'projet2.pto', '-p', '2',
-            '-c', f'{crop_values["lR"]},{crop_values["rR"]},{crop_values["tR"]},{crop_values["bR"]}',
-            imgR_path
-        ])
-        subprocess.run([
-            os.path.join(hugin_root, 'bin', 'pto_merge.exe'),
-            '-o', 'projet_merge.pto', 'projet1.pto', 'projet2.pto'
-        ])
-        subprocess.run([
-            os.path.join(hugin_root, 'bin', 'pto_lensstack.exe'),
-            '-o', 'projet_merge.pto', '--new-lens', 'i1', 'projet_merge.pto'
-        ])
-        subprocess.run([
-            os.path.join(hugin_root, 'bin', 'pto_var.exe'), '-o', 'projet_merge.pto',
-            '--set', f'y0={calibration_values["yF"]}, r0={calibration_values["rF"]}, p0={calibration_values["pF"]}',
-            '--set', f'v0={calibration_values["vF"]}',
-            '--set', f'a0={calibration_values["aF"]}, b0={calibration_values["bF"]}, c0={calibration_values["cF"]}',
-            '--set', f'd0={calibration_values["dF"]}, e0={calibration_values["eF"]}',
-            '--set', f'y1={calibration_values["yR"]}, r1={calibration_values["rR"]}, p1={calibration_values["pR"]}',
-            '--set', f'v1={calibration_values["vR"]}',
-            '--set', f'a1={calibration_values["aR"]}, b1={calibration_values["bR"]}, c1={calibration_values["cR"]}',
-            '--set', f'd1={calibration_values["dR"]}, e1={calibration_values["eR"]}',
-            '--opt', 'v0,v1,y1,p1,r1', 'projet_merge.pto'
-        ])
-        subprocess.run([
-            os.path.join(hugin_root, 'bin', 'cpfind.exe'),
-            '-o', 'projet_merge.pto', '--fullscale', 'projet_merge.pto'
-        ])
-        subprocess.run([
-            os.path.join(hugin_root, 'bin', 'autooptimiser.exe'),
-            '-o', 'projet_merge.pto', '-n', 'projet_merge.pto'
-        ])
-        subprocess.run([
-            os.path.join(hugin_root, 'bin', 'nona.exe'),
-            '-o', os.path.join(outdirectory, 'panoramas', f'pano{i + index_start:04d}'),
-            '-m', 'JPEG', 'projet_merge.pto'
-        ])
-        pair_list[i][0] = f'pano{i + index_start:04d}.jpg'
+        try:
+            _run([
+                os.path.join(hugin_root, 'bin', 'pto_gen.exe'),
+                '-o', 'projet1.pto', '-p', '2',
+                '-c', f'{crop_values["lF"]},{crop_values["rF"]},{crop_values["tF"]},{crop_values["bF"]}',
+                imgF_path
+            ])
+            _run([
+                os.path.join(hugin_root, 'bin', 'pto_gen.exe'),
+                '-o', 'projet2.pto', '-p', '2',
+                '-c', f'{crop_values["lR"]},{crop_values["rR"]},{crop_values["tR"]},{crop_values["bR"]}',
+                imgR_path
+            ])
+            _run([
+                os.path.join(hugin_root, 'bin', 'pto_merge.exe'),
+                '-o', 'projet_merge.pto', 'projet1.pto', 'projet2.pto'
+            ])
+            _run([
+                os.path.join(hugin_root, 'bin', 'pto_lensstack.exe'),
+                '-o', 'projet_merge.pto', '--new-lens', 'i1', 'projet_merge.pto'
+            ])
+            _run([
+                os.path.join(hugin_root, 'bin', 'pto_var.exe'), '-o', 'projet_merge.pto',
+                '--set', f'y0={calibration_values["yF"]}, r0={calibration_values["rF"]}, p0={calibration_values["pF"]}',
+                '--set', f'v0={calibration_values["vF"]}',
+                '--set', f'a0={calibration_values["aF"]}, b0={calibration_values["bF"]}, c0={calibration_values["cF"]}',
+                '--set', f'd0={calibration_values["dF"]}, e0={calibration_values["eF"]}',
+                '--set', f'y1={calibration_values["yR"]}, r1={calibration_values["rR"]}, p1={calibration_values["pR"]}',
+                '--set', f'v1={calibration_values["vR"]}',
+                '--set', f'a1={calibration_values["aR"]}, b1={calibration_values["bR"]}, c1={calibration_values["cR"]}',
+                '--set', f'd1={calibration_values["dR"]}, e1={calibration_values["eR"]}',
+                '--opt', 'v0,v1,y1,p1,r1', 'projet_merge.pto'
+            ])
+            _run([
+                os.path.join(hugin_root, 'bin', 'cpfind.exe'),
+                '-o', 'projet_merge.pto', '--fullscale', 'projet_merge.pto'
+            ])
+            _run([
+                os.path.join(hugin_root, 'bin', 'autooptimiser.exe'),
+                '-o', 'projet_merge.pto', '-n', 'projet_merge.pto'
+            ])
+            _run([
+                os.path.join(hugin_root, 'bin', 'nona.exe'),
+                '-o', os.path.join(outdirectory, 'panoramas', f'pano{i + index_start:04d}'),
+                '-m', 'JPEG', 'projet_merge.pto'
+            ])
+            pair_list[i][0] = f'pano{i + index_start:04d}.jpg'
+        except RuntimeError:
+            logger.warning('Paire %d ignorée en raison d\'une erreur Hugin', i)
+        finally:
+            for f in _temp_files:
+                if os.path.exists(f):
+                    os.remove(f)
 
-    for f in ('projet1.pto', 'projet2.pto', 'projet_merge.pto'):
-        if os.path.exists(f):
-            os.remove(f)
     print('Les photos sont assemblées!')
     logger.info('Les photos sont assemblées!')
     return pair_list

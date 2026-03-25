@@ -217,7 +217,10 @@ class AppManager(QObject):
     def set_map_crs(self, epsg: int):
         """Change le CRS de la carte et redessine avec les mêmes données."""
         self._map_crs_epsg = int(epsg)
-        self.photo_window.gl_widget.new_pointer_direction.disconnect()
+        try:
+            self.photo_window.gl_widget.new_pointer_direction.disconnect()
+        except TypeError:
+            pass
         self.photo_window.replot_map(
             self.photo_info, self.tree_info, self._map_crs_epsg
         )
