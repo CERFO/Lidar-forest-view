@@ -18,6 +18,8 @@ logger = get_logger(__name__)
 class AppManager(QObject):
     def __init__(self):
         super().__init__()
+        self._map_crs_epsg = 2949
+        self._map_basemap = BASEMAP_OSM
         self.form = DataForm([
             ['Répertoire du projet', 'project_dir', 'répertoire'],
         ])
@@ -63,8 +65,6 @@ class AppManager(QObject):
             )
             self.tree_info = None
 
-        self._map_crs_epsg = getattr(self, '_map_crs_epsg', 2949)
-        self._map_basemap = getattr(self, '_map_basemap', BASEMAP_OSM)
         self.photo_window = PhotoWindow(
             self.photo_info, self.tree_info,
             self.project_dir / 'panoramas',

@@ -40,6 +40,8 @@ class LidarWindow(QMainWindow):
         )
         self.plotter.enable_eye_dome_lighting()
         self.plotter.add_on_render_callback(self.on_render)
+        self.cloud_group = []
+        self.qsm_group = []
 
     def load_point_cloud(self, point_cloud_path, actor_name):
         try:
@@ -53,8 +55,6 @@ class LidarWindow(QMainWindow):
                 centered_pcd, name=actor_name, style='points', point_size=2,
                 label=actor_name, pickable=False , color=random.choice(color)
             )
-            if not hasattr(self, 'cloud_group'):
-                self.cloud_group = []
             self.cloud_group.append(actor)
         except FileNotFoundError:
             print(f'Le fichier {point_cloud_path} n\'a pas été trouvé')
@@ -87,18 +87,16 @@ class LidarWindow(QMainWindow):
                 self.translation = np.asarray(mesh.center)
             mesh = mesh.translate(-self.translation)
             actor = self.plotter.add_mesh(mesh, name=actor_name, pickable=False)
-            if not hasattr(self, 'qsm_group'):
-                self.qsm_group = []
             self.qsm_group.append(actor)
         except FileNotFoundError:
             print(f'Le fichier {qsm_path} n\'a pas été trouvé')
             logger.info(f'Le fichier {qsm_path} n\'a pas été trouvé')
 
     def set_visibility(self, group, state):
-        if group == 'qsm' and hasattr(self, 'qsm_group'):
+        if group == 'qsm':
             for item in self.qsm_group:
                 item.visibility = state
-        elif group == 'cloud' and hasattr(self, 'cloud_group'):
+        elif group == 'cloud':
             for item in self.cloud_group:
                 item.visibility = state
         else:
@@ -201,6 +199,8 @@ class LidarWindow(QMainWindow):
         self.plotter.clear_actors()
         self.camera_parameters = [[0, 0, 0], [1, 0, 0], [0, 0, 1]]
         self.plotter.camera_position = self.camera_parameters
+        self.cloud_group = []
+        self.qsm_group = []
         self.translation = None
         self._tree_positions_centered = None
         self._tree_labels = None
