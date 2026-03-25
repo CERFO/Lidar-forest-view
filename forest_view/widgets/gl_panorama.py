@@ -88,7 +88,7 @@ class GLWidget(QOpenGLWidget):
                 logger.info(f"Image chargée : {image_path}")
             except Exception as e:
                 print(f"Erreur au chargement de l'image {image_path} : {e}")
-                logger.info(f"Erreur au chargement de l'image {image_path} : {e}")
+                logger.error(f"Erreur au chargement de l'image {image_path} : {e}")
         else:
             self.image = Image.new('RGB', (100, 50), color='gray')
             self.image_width, self.image_height = self.image.size

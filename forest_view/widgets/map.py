@@ -20,6 +20,7 @@ from forest_view.widgets.map_items import PhotoPoint, TreePoint
 
 TILE_SIZE = 256
 OSM_USER_AGENT = "UdeSForestView/1.0"
+logger = get_logger(__name__)
 
 BASEMAP_OSM = "osm"
 BASEMAP_PROVIDERS = {
@@ -64,8 +65,8 @@ def _fetch_tile(z, x, y, url_template):
         pix = QPixmap()
         if pix.loadFromData(data):
             return pix
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.warning("Impossible de télécharger la tuile %s: %s", url, exc)
     return None
 
 

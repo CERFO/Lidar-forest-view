@@ -58,6 +58,10 @@ def export_photo_info_to_csv(photo_info, filename):
         photo_info (list): Liste des informations des photos
         filename (str): Nom (chemin complet) du fichier CSV de sortie
     """
+    if not photo_info:
+        logger.warning("Aucune information photo à exporter vers %s", filename)
+        return
+
     if isinstance(photo_info[0][0], list):
         header = ['image_avant', 'image_arrière', 'timestamp', 'x', 'y', 'z', 'roll', 'pitch', 'yaw']
     else:
