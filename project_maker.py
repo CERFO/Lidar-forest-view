@@ -114,31 +114,70 @@ class ProjectMaker(QWidget):
         os.makedirs(os.path.join(project_path, 'panoramas'), exist_ok=True)
 
         # Saisie du nombre des scans à incorporer
-        num_scans, _ = QInputDialog.getInt(self, 'Nombre de scans', 'Entrez le nombre de scans à incorporer :', 1, 1, 100)
+        num_scans, ok = QInputDialog.getInt(self, 'Nombre de scans', 'Entrez le nombre de scans à incorporer :', 1, 1, 100)
+        while not ok:
+            reply = QMessageBox.question(self, 'Vous partez déjà?',
+                                        'Êtes-vous sûr de vouloir quitter?',
+                                        QMessageBox.Yes | QMessageBox.No,
+                                        QMessageBox.No)
+            if reply == QMessageBox.Yes:
+                shutil.rmtree(project_path, ignore_errors=True)
+                sys.exit()
+            else:
+                num_scans, ok = QInputDialog.getInt(self, 'Nombre de scans', 'Entrez le nombre de scans à incorporer :', 1, 1, 100)
+
         total_data = []
         scans_info = []
-
         # Pour chaque scan, on demande les informations nécessaires, puis on traite les photos 
-        for i in range(num_scans):
-            scan_form = ScanForm(i+1)
-            scan_form.exec()
+        try:
+            for i in range(num_scans):
+                scan_form = ScanForm(i+1)
+                scan_form.exec()
+                scans_info.append(scan_form.get_info())
 
-            scans_info.append(scan_form.get_info())
-        
-        index = 0
-        for info in scans_info:
-            if info[0] == 'GS-vision':
-                new_data, index = self.add_gs_vision_scan(info[1], info[2], index, project_path)
-            elif info[0] == 'Insta 360':
-                new_data, index = self.add_insta_360_scan(info[1], info[2], info[3], index, project_path)
-            elif info[0] == 'Eagle':
-                new_data, index = self.add_eagle_scan(info[1], info[2], index, project_path)
-            elif info[0] == 'Hémisphérique':
-                new_data, index = self.add_plain_scan(info[1], info[2], info[3], index, project_path, info[4])
+            progress_bar = QProgressDialog('Traitement des scans', 'Cancel', 0, len(scans_info))
+            progress_bar.setValue(0)
+            progress_bar.setMinimumDuration(0)
+            progress_bar.show()
+            QApplication.processEvents()
 
-            total_data.extend(new_data)
+            index = 0
+            for i, info in enumerate(scans_info):
+                QApplication.processEvents()
+                if progress_bar.wasCanceled():
+                    break
+                if info[0] == 'GS-vision':
+                    new_data, index = self.add_gs_vision_scan(info[1], info[2], index, project_path)
+                elif info[0] == 'Insta 360':
+                    new_data, index = self.add_insta_360_scan(info[1], info[2], info[4], info[5], info[6], index, project_path)
+                elif info[0] == 'Eagle':
+                    new_data, index = self.add_eagle_scan(info[1], info[2], index, project_path)
+                elif info[0] == 'Hémisphérique':
+                    new_data, index = self.add_plain_scan(info[1], info[4], info[2], index, project_path, info[5])
 
-        self.export_data(total_data, project_path)
+                total_data.extend(new_data)
+                src_path = info[3]
+                dst_path = os.path.join(project_path, os.path.basename(info[3]))
+                shutil.copy2(src_path, dst_path)
+                progress_bar.setValue(i+1)
+                QApplication.processEvents()
+
+            if not progress_bar.wasCanceled():
+                self.export_data(total_data, project_path)
+
+        except Exception as e:
+            if  'progress_bar' in locals():
+                progress_bar.close()
+            QMessageBox.critical(self, 'Erreur', f'Une erreur est survenu pendant la création de projet : {e}')
+            shutil.rmtree(project_path, ignore_errors=True)
+        else:
+            if  'progress_bar' in locals():
+                if progress_bar.wasCanceled():
+                    QMessageBox.information(self, 'Traitement annulé', 'Le traitement des images à été annulé')
+                    shutil.rmtree(project_path, ignore_errors=True)
+                else:
+                    progress_bar.close()
+                    QMessageBox.information(self, 'Création réussie!', f'La création de projet est réussie. Vous trouverez votre projet à {project_path}')
 
     def add_scans(self):
         # Saisie de l'emplacement du projet (avec validation pour projets incomplets)
@@ -186,61 +225,137 @@ class ProjectMaker(QWidget):
             break
 
         # Saisie du nombre des scans à incorporer
-        num_scans, _ = QInputDialog.getInt(self, 'Nombre de scans', 'Entrez le nombre de scans à incorporer :', 1, 1, 100)
+        num_scans, ok = QInputDialog.getInt(self, 'Nombre de scans', 'Entrez le nombre de scans à incorporer :', 1, 1, 100)
+        while not ok:
+            reply = QMessageBox.question(self, 'Vous partez déjà?',
+                                        'Êtes-vous sûr de vouloir quitter?',
+                                        QMessageBox.Yes | QMessageBox.No,
+                                        QMessageBox.No)
+            if reply == QMessageBox.Yes:
+                sys.exit()
+            else:
+                num_scans, ok = QInputDialog.getInt(self, 'Nombre de scans', 'Entrez le nombre de scans à incorporer :', 1, 1, 100)
+
         _, total_data = readCSV(os.path.join(project_path, 'photo_info.csv'))
         scans_info = []
+        # Pour chaque scan, on demande les informations nécessaires, puis on traite les photos 
+        try:
+            for i in range(num_scans):
+                scan_form = ScanForm(i+1)
+                scan_form.exec()
+                scans_info.append(scan_form.get_info())
 
-        for i in range(num_scans):
-            scan_form = ScanForm(i+1)
-            scan_form.exec()
+            progress_bar = QProgressDialog('Traitement des scans', 'Cancel', 0, len(scans_info))
+            progress_bar.setValue(0)
+            progress_bar.setMinimumDuration(0)
+            progress_bar.show()
+            QApplication.processEvents()
 
-            scans_info.append(scan_form.get_info())
+            index = len(total_data)
+            for i, info in enumerate(scans_info):
+                QApplication.processEvents()
+                if progress_bar.wasCanceled():
+                    break
+                if info[0] == 'GS-vision':
+                    new_data, index = self.add_gs_vision_scan(info[1], info[2], index, project_path)
+                elif info[0] == 'Insta 360':
+                    new_data, index = self.add_insta_360_scan(info[1], info[2], info[4], info[5], info[6], index, project_path)
+                elif info[0] == 'Eagle':
+                    new_data, index = self.add_eagle_scan(info[1], info[2], index, project_path)
+                elif info[0] == 'Hémisphérique':
+                    new_data, index = self.add_plain_scan(info[1], info[4], info[2], index, project_path, info[5])
 
-        index = len(total_data)
-        for info in scans_info:
-            if info[0] == 'GS-vision':
-                new_data, index = self.add_gs_vision_scan(info[1], info[2], index, project_path)
-            elif info[0] == 'Insta 360':
-                new_data, index = self.add_insta_360_scan(info[1], info[2], info[3], index, project_path)
-            elif info[0] == 'Eagle':
-                new_data, index = self.add_eagle_scan(info[1], info[2], index, project_path)
-            elif info[0] == 'Hémisphérique':
-                new_data, index = self.add_plain_scan(info[1], info[2], info[3], index, project_path, info[4])
+                total_data.extend(new_data)
+                src_path = info[3]
+                dst_path = os.path.join(project_path, os.path.basename(info[3]))
+                shutil.copy2(src_path, dst_path)
+                progress_bar.setValue(i+1)
+                QApplication.processEvents()
 
-            total_data.extend(new_data)
+            if not progress_bar.wasCanceled():
+                self.export_data(total_data, project_path)
 
-        self.export_data(total_data, project_path)
+        except Exception as e:
+            if  'progress_bar' in locals():
+                progress_bar.close()
+            QMessageBox.critical(self, 'Erreur', f'Une erreur est survenu pendant la création de projet : {e}')
+        else:
+            if  'progress_bar' in locals():
+                if progress_bar.wasCanceled():
+                    QMessageBox.information(self, 'Traitement annulé', 'Le traitement des images à été annulé')
+                else:
+                    progress_bar.close()
+                    QMessageBox.information(self, 'Création réussie!', f'La création de projet est réussie. Vous trouverez votre projet à {project_path}')
 
-    def add_insta_360_scan(self, traj_photos_path, photo_dir, camera_orientation,  index, project_path):
+    def add_insta_360_scan(self, traj_photos_path, photo_dir,
+                           ypr_offsets, translation:QVector4D,
+                           stabilized:bool, index, project_path):
+        def global_rotate(mat, angle, ux, uy, uz):
+            r = QMatrix4x4()
+            r.rotate(angle, ux,uy,uz)
+            mat = r * mat
+            return mat
+
         traj_photos = CSV_to_dict(traj_photos_path)
         out_data = []
 
+        yaw_offset = ypr_offsets[0]
+        pitch_offset = ypr_offsets[1]
+        roll_offset = ypr_offsets[2]
+
         for data in traj_photos:
             entry_name = f'pano{index:04d}.jpg'
-            roll = float(data['roll'])
-            pitch = float(data['pitch'])
-            yaw = float(data['yaw'])
-            if camera_orientation == 'Gauche':
-                yaw_offset = -90
-            elif camera_orientation == 'Droite':
-                yaw_offset = 90
-            elif camera_orientation == 'Avant':
-                yaw_offset = 180
-            else:
-                yaw_offset = 0
-            yaw_corrected_deg = math.degrees(math.atan2(
-                math.sin(yaw) * math.cos(pitch) + math.cos(yaw) * math.sin(roll) * math.sin(pitch),
-                math.cos(yaw) * math.cos(pitch) - math.sin(yaw) * math.sin(roll) * math.sin(pitch))
-            ) + yaw_offset
+            x = float(data['x'])
+            y = float(data['y'])
+            z = float(data['z'])
+
+            roll = math.degrees(float(data.get('roll')))
+            pitch = math.degrees(float(data.get('pitch')))
+            yaw = math.degrees(float(data.get('yaw')))
+
+            rp = QMatrix4x4()
+            rp.rotate(yaw, 0,0,1)
+            rp.rotate(pitch, 0,1,0)
+            rp.rotate(roll, 1,0,0)
+
+            p = rp * translation
+            x += p.x()
+            y += p.y()
+            z += p.z()
+
+            if stabilized:
+                roll = float(data['roll']) + math.radians(roll_offset)
+                pitch = float(data['pitch']) + math.radians(pitch_offset)
+                yaw = float(data['yaw'])
+                
+                yaw = math.degrees(math.atan2(
+                    math.sin(yaw) * math.cos(pitch) + math.cos(yaw) * math.sin(roll) * math.sin(pitch),
+                    math.cos(yaw) * math.cos(pitch) - math.sin(yaw) * math.sin(roll) * math.sin(pitch))
+                ) + yaw_offset
+                pitch = 0
+                roll = 0
+            else :
+                m = QMatrix4x4()
+                m = global_rotate(m, yaw_offset, 0,0,1)
+                m = global_rotate(m, pitch_offset, 0,1,0)
+                m = global_rotate(m, roll_offset, 1,0,0)
+                m = global_rotate(m, roll, 1,0,0)
+                m = global_rotate(m, pitch, 0,1,0)
+                m = global_rotate(m, yaw, 0,0,1)
+
+                yaw = math.degrees(math.atan2(m[1,0], m[0,0]))
+                pitch = math.degrees(-math.asin(m[2,0]))
+                roll = math.degrees(math.atan2(m[2,1], m[2,2]))
+
             entry = [
                 entry_name,         # image
                 data['X..world_time'],  # timestamp
-                data['x'],          # x
-                data['y'],          # y
-                data['z'],          # z
-                0,                  # roll
-                0,                  # pitch
-                yaw_corrected_deg   # yaw
+                x,                  # x
+                y,                  # y
+                z,                  # z
+                roll,               # roll
+                pitch,              # pitch
+                yaw                 # yaw
                 ]
             out_data.append(entry)
 
@@ -351,7 +466,7 @@ class ScanForm(QDialog):
 
         self.combo_box = QComboBox()
         self.combo_box.insertItems(0, ['Sélectionner', 'GS-vision', 'Insta 360', 'Eagle', 'Hémisphérique'])
-        self.combo_box.currentTextChanged.connect(self.on_text_change)
+        self.combo_box.currentTextChanged.connect(self.on_scan_type_change)
         self.layout.addRow('Type de données', self.combo_box)
 
         traj_label, traj_info, traj_help = _make_label_with_help('Trajectoire photos', {
@@ -391,6 +506,12 @@ class ScanForm(QDialog):
         self.layout.addRow(fisheye_label, self.fisheye_photos)
         self.layout.setRowVisible(self.fisheye_photos, False)
 
+        lidar_label, lidar_info, lidar_help = _make_label_with_help('Nuage de points', {t: SCAN_FIELD_HELP[t]['lidar_cloud'] for t in ('GS-vision', 'Insta 360', 'Eagle', 'Hémisphérique')})
+        self._help_info_labels.append((lidar_info, lidar_help))
+        self.lidar_cloud = BrowseLayout('Nuage de points', 'point_cloud', 'file', self.memory)
+        self.layout.addRow(lidar_label, self.lidar_cloud)
+        self.layout.setRowVisible(self.lidar_cloud, False)
+
         hugin_label, hugin_info, hugin_help = _make_label_with_help('Racine Hugin', {'Hémisphérique': SCAN_FIELD_HELP['Hémisphérique']['hugin']})
         self._help_info_labels.append((hugin_info, hugin_help))
         self.hugin = BrowseLayout('Racine Hugin', 'hugin_root', 'répertoire', self.memory)
@@ -400,9 +521,65 @@ class ScanForm(QDialog):
         cam_label, cam_info, cam_help = _make_label_with_help('Orientation de la caméra', {'Insta 360': SCAN_FIELD_HELP['Insta 360']['camera_orientation']})
         self._help_info_labels.append((cam_info, cam_help))
         self.camera_orientation = QComboBox()
-        self.camera_orientation.insertItems(0, ['Gauche', 'Droite', 'Avant', 'Arrière'])
+        self.camera_orientation.insertItems(0, ['Gauche', 'Droite', 'Avant', 'Arrière', 'Personnalisé'])
+        self.camera_orientation.currentTextChanged.connect(self.on_camera_direction_change)
         self.layout.addRow(cam_label, self.camera_orientation)
         self.layout.setRowVisible(self.camera_orientation, False)
+
+        offset_label, offset_info, offset_help = _make_label_with_help('Décalage photo lidar', {'Insta 360':SCAN_FIELD_HELP['Insta 360']['offsets']})
+        self._help_info_labels.append((offset_info, offset_help))
+        self.offset_box = QGroupBox(self)
+        self.offset_layout = QFormLayout(self.offset_box)
+        # Rotation
+        self.yaw_offset = QDoubleSpinBox(self.offset_box)
+        self.yaw_offset.setMinimum(-180)
+        self.yaw_offset.setMaximum(360)
+        self.yaw_offset.setValue(self.memory.get('offsets', {}).get('yaw_offset', -90))
+        self.yaw_offset.setSuffix('°')
+        self.pitch_offset = QDoubleSpinBox(self.offset_box)
+        self.pitch_offset.setMinimum(-90)
+        self.pitch_offset.setMaximum(90)
+        self.pitch_offset.setValue(self.memory.get('offsets', {}).get('pitch_offset', 23))
+        self.pitch_offset.setSuffix('°')
+        self.roll_offset = QDoubleSpinBox(self.offset_box)
+        self.roll_offset.setMinimum(-90)
+        self.roll_offset.setMaximum(90)
+        self.roll_offset.setValue(self.memory.get('offsets', {}).get('roll_offset', 0))
+        self.roll_offset.setSuffix('°')
+        self.offset_layout.addRow('Yaw', self.yaw_offset)
+        self.offset_layout.addRow('Pitch', self.pitch_offset)
+        self.offset_layout.addRow('Roll', self.roll_offset)
+        self.offset_layout.setRowVisible(self.yaw_offset, False)
+        # Translation
+        self.x_offset = QDoubleSpinBox(self.offset_box)
+        self.x_offset.setMinimum(-2)
+        self.x_offset.setMaximum(2)
+        self.x_offset.setValue(self.memory.get('offsets', {}).get('x_offset', 0))
+        self.x_offset.setSuffix(' m')
+        self.y_offset = QDoubleSpinBox(self.offset_box)
+        self.y_offset.setMinimum(-2)
+        self.y_offset.setMaximum(2)
+        self.y_offset.setValue(self.memory.get('offsets', {}).get('y_offset', 0))
+        self.y_offset.setSuffix(' m')
+        self.z_offset = QDoubleSpinBox(self.offset_box)
+        self.z_offset.setMinimum(-2)
+        self.z_offset.setMaximum(2)
+        self.z_offset.setValue(self.memory.get('offsets', {}).get('z_offset', 0.25))
+        self.z_offset.setSuffix(' m')
+        self.offset_layout.addRow('X', self.x_offset)
+        self.offset_layout.addRow('Y', self.y_offset)
+        self.offset_layout.addRow('Z', self.z_offset)
+        self.offset_box.setLayout(self.offset_layout)
+        self.layout.addRow(offset_label, self.offset_box)
+        self.layout.setRowVisible(self.offset_box, False)
+        self.camera_orientation.setCurrentIndex(self.memory.get('offsets', {}).get('cam_orient_index', 0))
+
+        stab_label, stab_info, stab_help = _make_label_with_help('Stabilisation d\'image', {'Insta 360': SCAN_FIELD_HELP['Insta 360']["image_stabilization"]})
+        self._help_info_labels.append((stab_info, stab_help))
+        self.image_stabilization = QCheckBox(self)
+        self.image_stabilization.setChecked(False)
+        self.layout.addRow(stab_label, self.image_stabilization)
+        self.layout.setRowVisible(self.image_stabilization, False)
 
         for info, _ in self._help_info_labels:
             info.installEventFilter(self)
@@ -429,17 +606,31 @@ class ScanForm(QDialog):
                     break
         return super().eventFilter(obj, event)
 
-    def on_text_change(self, new_text):
+    def on_scan_type_change(self, new_text):
         self.layout.setRowVisible(self.trajectory, new_text == 'Insta 360' or new_text == 'Eagle' or new_text == 'Hémisphérique')
         self.layout.setRowVisible(self.gs_vision, new_text == 'GS-vision')
         self.layout.setRowVisible(self.calibration, new_text == 'Hémisphérique')
         self.layout.setRowVisible(self.pano_photos, new_text == 'GS-vision' or new_text == 'Insta 360')
         self.layout.setRowVisible(self.fisheye_photos, new_text == 'Eagle' or new_text == 'Hémisphérique')
+        self.layout.setRowVisible(self.lidar_cloud, new_text != 'Sélectionner')
         self.layout.setRowVisible(self.hugin, new_text == 'Hémisphérique')
         self.layout.setRowVisible(self.camera_orientation, new_text == 'Insta 360')
+        self.layout.setRowVisible(self.offset_box, new_text == 'Insta 360')
+        self.layout.setRowVisible(self.image_stabilization, new_text == 'Insta 360')
         for info, help_by_type in self._help_info_labels:
             info.setToolTip(help_by_type.get(new_text, "") if help_by_type else "")
         self.adjustSize()
+
+    def on_camera_direction_change(self, new_text):
+        self.offset_layout.setRowVisible(self.yaw_offset, new_text == 'Personnalisé')
+        if new_text == 'Gauche':
+            self.yaw_offset.setValue(-90)
+        elif new_text == 'Droite':
+            self.yaw_offset.setValue(90)
+        elif new_text == 'Avant':
+            self.yaw_offset.setValue(180)
+        elif new_text == 'Arrière':
+            self.yaw_offset.setValue(0)
 
     def submit_data(self): # TODO ajouter une sécurité contre les formulaires incomplets
         for row in range(self.layout.rowCount()):
@@ -449,6 +640,13 @@ class ScanForm(QDialog):
                     self.memory[item.field] = item.line_edit.text()
                 else:
                     self.memory.update({item.field: item.line_edit.text()})
+        if 'offsets' not in self.memory:
+            self.memory.update({'offsets': {}})
+        for name, value in [(name, value) for name, value in vars(self).items() 
+                            if value in [self.yaw_offset, self.pitch_offset, self.roll_offset,
+                                         self.x_offset, self.y_offset, self.z_offset]]:
+            self.memory['offsets'].update({name: value.value()})
+        self.memory['offsets'].update({'cam_orient_index': self.camera_orientation.currentIndex()})
         writeJSON('appsettings.json', self.memory)
         self.close()
 
@@ -456,24 +654,35 @@ class ScanForm(QDialog):
         if self.combo_box.currentText() == 'GS-vision':
             return [self.combo_box.currentText(),
                     self.gs_vision.line_edit.text(),
-                    self.pano_photos.line_edit.text()]
+                    self.pano_photos.line_edit.text(),
+                    self.lidar_cloud.line_edit.text()]
 
         elif self.combo_box.currentText() == 'Insta 360':
             return [self.combo_box.currentText(),
                     self.trajectory.line_edit.text(),
                     self.pano_photos.line_edit.text(),
-                    self.camera_orientation.currentText()]
+                    self.lidar_cloud.line_edit.text(),
+                    [float(self.yaw_offset.value()),
+                        float(self.pitch_offset.value()),
+                        float(self.roll_offset.value())],
+                    QVector4D(float(self.x_offset.value()),
+                              float(self.y_offset.value()),
+                              float(self.z_offset.value()),
+                              1),
+                    self.image_stabilization.isChecked()]
 
         elif self.combo_box.currentText() == 'Eagle':
             return [self.combo_box.currentText(),
                     self.trajectory.line_edit.text(),
-                    self.fisheye_photos.line_edit.text()]
+                    self.fisheye_photos.line_edit.text(),
+                    self.lidar_cloud.line_edit.text()]
 
         elif self.combo_box.currentText() == 'Hémisphérique':
             return [self.combo_box.currentText(),
                     self.trajectory.line_edit.text(),
-                    self.calibration.line_edit.text(),
                     self.fisheye_photos.line_edit.text(),
+                    self.lidar_cloud.line_edit.text(),
+                    self.calibration.line_edit.text(),
                     self.hugin.line_edit.text()]
 
 class BrowseLayout(QHBoxLayout):

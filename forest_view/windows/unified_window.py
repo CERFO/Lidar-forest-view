@@ -1,4 +1,4 @@
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QRect
 from PyQt6.QtGui import QAction
 from PyQt6.QtWidgets import (
     QApplication,
@@ -12,6 +12,8 @@ from PyQt6.QtWidgets import (
     QSplitterHandle,
     QVBoxLayout,
     QWidget,
+    QWidgetAction,
+    QCheckBox
 )
 
 
@@ -43,7 +45,10 @@ class PanoramaMapOverlayContainer(QWidget):
         if self._panorama:
             self._panorama.setGeometry(r)
         if self._map_panel:
-            self._map_panel.setGeometry(r)
+            width = int(r.width()/3)
+            height = int(r.height()/3)
+            left = r.width() - width
+            self._map_panel.setGeometry(QRect(left, 0, width, height))
             self._map_panel.raise_()
 
     def resizeEvent(self, event):
@@ -81,6 +86,7 @@ class UnifiedWindow(QMainWindow):
         self.on_change_site_requested = None
         self.on_crs_changed = None
         self.on_basemap_changed = None
+        self.on_lidar_vis_change = None
         self._lidar_widget = None
         self._panorama_container = None
         self._right_container = None
@@ -124,6 +130,21 @@ class UnifiedWindow(QMainWindow):
             self._basemap_actions[provider_id] = action
         menu_carte.addMenu(menu_fond)
         menu_bar.addMenu(menu_carte)
+
+        menu_lidar = QMenu('Lidar', self)
+        qsm_vis_box = QCheckBox('QSM', self)
+        qsm_vis_box.setChecked(True)
+        qsm_vis_box.stateChanged.connect(lambda: self._on_visibility_change('qsm', qsm_vis_box.isChecked()))
+        qsm_vis_act = QWidgetAction(self)
+        qsm_vis_act.setDefaultWidget(qsm_vis_box)
+        menu_lidar.addAction(qsm_vis_act)
+        cloud_vis_box = QCheckBox('Nuages de points', self)
+        cloud_vis_box.setChecked(True)
+        cloud_vis_box.stateChanged.connect(lambda: self._on_visibility_change('cloud', cloud_vis_box.isChecked()))
+        cloud_vis_act = QWidgetAction(self)
+        cloud_vis_act.setDefaultWidget(cloud_vis_box)
+        menu_lidar.addAction(cloud_vis_act)
+        menu_bar.addMenu(menu_lidar)
         self.setMenuBar(menu_bar)
 
         self.splitter = ResizableSplitter(Qt.Orientation.Horizontal)
@@ -216,6 +237,10 @@ class UnifiedWindow(QMainWindow):
             action.setChecked(pid == provider_id)
         if callable(self.on_basemap_changed):
             self.on_basemap_changed(provider_id)
+
+    def _on_visibility_change(self, group, state):
+        if callable(self.on_lidar_vis_change):
+            self.on_lidar_vis_change(group, state)
 
     def set_basemap_checked(self, provider_id: str):
         """Met à jour la coche du menu Fond de carte (ex. après chargement d'un projet)."""

@@ -1,4 +1,4 @@
-import os
+from pathlib import Path
 
 import numpy as np
 from PyQt6.QtCore import QObject, QTimer
@@ -22,6 +22,7 @@ class AppManager(QObject):
             ['Répertoire du projet', 'project_dir', 'répertoire'],
         ])
         self.form.exec()
+        self.project_dir = Path(self.form.paths['project_dir'])
         self._open_navigation()
 
     def _open_navigation(self):
@@ -40,7 +41,7 @@ class AppManager(QObject):
         """Implémentation du chargement et de l'affichage."""
         try:
             self.photo_info = CSV_to_dict(
-                os.path.join(self.form.paths['project_dir'], 'photo_info.csv'), ','
+                self.project_dir / 'photo_info.csv', ','
             )
         except FileNotFoundError:
             QMessageBox.warning(
@@ -52,7 +53,7 @@ class AppManager(QObject):
 
         try:
             self.tree_info = CSV_to_dict(
-                os.path.join(self.form.paths['project_dir'], 'tree_info.csv'), ','
+                self.project_dir / 'tree_info.csv', ','
             )
         except FileNotFoundError:
             QMessageBox.warning(
@@ -66,7 +67,7 @@ class AppManager(QObject):
         self._map_basemap = getattr(self, '_map_basemap', BASEMAP_OSM)
         self.photo_window = PhotoWindow(
             self.photo_info, self.tree_info,
-            os.path.join(self.form.paths['project_dir'], 'panoramas'),
+            self.project_dir / 'panoramas',
             initial_crs_epsg=self._map_crs_epsg,
             initial_basemap_id=self._map_basemap,
         )
@@ -120,23 +121,29 @@ class AppManager(QObject):
         overlay.raise_()
         QApplication.processEvents()
 
-        project_dir = self.form.paths['project_dir']
         tree_info = self.tree_info
         photo_info = self.photo_info
 
         def _run_loading():
             try:
-                self.lidar_window.load_point_cloud(
-                    os.path.join(project_dir, 'cloud.laz'), 'main_cloud'
-                )
+                for i, item in enumerate(self.project_dir.rglob('*')):
+                    if item.suffix in ['.laz', '.las']:
+                        self.lidar_window.load_point_cloud(
+                            item, item.name
+                        )
+                    elif item.suffix == '.obj':
+                        self.lidar_window.add_qsm(
+                            item, item.name
+                        )
+                    else:
+                        continue
+
+                    if i % 30 == 0:
+                                QApplication.processEvents()
+
                 QApplication.processEvents()
-                if tree_info:
+                if tree_info and len(tree_info) > 0:
                     self.lidar_window.add_trees(tree_info)
-                QApplication.processEvents()
-                self.lidar_window.load_point_cloud(
-                    os.path.join(project_dir, 'aero_cloud.laz'), 'aeroporté'
-                )
-                QApplication.processEvents()
                 if photo_info and len(photo_info) > 0:
                     p = photo_info[0]
                     x, y, z = float(p['x']), float(p['y']), float(p['z'])
@@ -192,6 +199,7 @@ class AppManager(QObject):
             self._unified_window.on_change_site_requested = self.change_site
             self._unified_window.on_crs_changed = self.set_map_crs
             self._unified_window.on_basemap_changed = self.set_map_basemap
+            self._unified_window.on_lidar_vis_change = self.set_lidar_visibility
             self._unified_window._cleanup_before_quit = self._release_vtk_before_quit
         lidar_w = self.lidar_window.centralWidget()
         photo_content = self.photo_window.centralWidget()
@@ -209,7 +217,10 @@ class AppManager(QObject):
     def set_map_crs(self, epsg: int):
         """Change le CRS de la carte et redessine avec les mêmes données."""
         self._map_crs_epsg = int(epsg)
-        self.photo_window.gl_widget.new_pointer_direction.disconnect()
+        try:
+            self.photo_window.gl_widget.new_pointer_direction.disconnect()
+        except TypeError:
+            pass
         self.photo_window.replot_map(
             self.photo_info, self.tree_info, self._map_crs_epsg
         )
@@ -221,6 +232,9 @@ class AppManager(QObject):
         self.photo_window.map_widget.add_osm_base_map()
         if self._unified_window is not None:
             self._unified_window.set_basemap_checked(provider_id)
+
+    def set_lidar_visibility(self, group, state):
+        self.lidar_window.set_visibility(group, state)
 
     def change_site(self):
         """Demande confirmation, ferme les fenêtres de navigation et retourne au choix du projet."""
@@ -248,6 +262,7 @@ class AppManager(QObject):
         self.form.raise_()
         self.form.activateWindow()
         result = self.form.exec()
+        self.project_dir = Path(self.form.paths['project_dir'])
         if result != QDialog.DialogCode.Accepted:
             return
         self._open_navigation()

@@ -25,8 +25,9 @@ Utilitaire de visualisation simultanée de données lidar, photo et cartographiq
 | **`photo_info.csv`** | Dans le projet | CSV : `image`, `x`, `y`, `z` ; optionnel `yaw`, `pitch`, `roll`. Les colonnes `x`, `y` sont interprétées dans le CRS choisi (voir [CRS et carte](#système-de-coordonnées-crs-et-carte)). |
 | **`tree_info.csv`** | Dans le projet | CSV : `x`, `y`, `z`, `No_tige` + autres colonnes (propriétés). `x`, `y` dans le même CRS que la carte. |
 | **`panoramas/`** | Dans le projet | Dossier d'images ; noms = colonne `image` de `photo_info.csv` (ex. `pano0001.jpg`). |
-| **`cloud.laz`** | Dans le projet | Nuage lidar principal. Sinon : console + vue 3D vide. |
-| **`aero_cloud.laz`** | Dans le projet | Second nuage (ex. aéroporté). Sinon : message console. |
+| **`cloud.laz`** | Dans le projet | Nuage lidar principal. Sinon : vue 3D vide. |
+| **`aero_cloud.laz`** | Dans le projet | Second nuage (ex. aéroporté). |
+| **`qsm/`** |Dans le projet | Dossier des fichiers .obj des qsm (ex. `tree_1.obj`) |
 | **`appsettings.json`** | Répertoire courant | Pré-remplit le dernier répertoire projet ; mis à jour à chaque soumission. |
 
 ### Structure de projet canonique
@@ -37,9 +38,13 @@ Utilitaire de visualisation simultanée de données lidar, photo et cartographiq
 ├── tree_info.csv       (colonnes : x, y, z, No_tige, + autres)
 ├── cloud.laz
 ├── aero_cloud.laz
-└── panoramas/
+├── panoramas/
     ├── pano0000.jpg
     ├── pano0001.jpg
+    └── ...
+└── qsm/
+    ├── tree_1.obj
+    ├── tree_2.obj
     └── ...
 ```
 
@@ -47,12 +52,12 @@ Utilitaire de visualisation simultanée de données lidar, photo et cartographiq
 
 | Outil | Rôle |
 |-------|------|
-| **`project_maker.py`** | Crée le projet + `panoramas/` + `photo_info.csv` à partir de GS-vision, Insta 360, Eagle ou Hémisphérique. |
+| **`project_maker.py`** | Crée le projet + `panoramas/` + `photo_info.csv` + nage de points à partir de GS-vision, Insta 360, Eagle ou Hémisphérique. |
 | **`scripts/Trait_photo_v6.py`** | Flux Hémisphérique seul. Script autonome. |
 | **`scripts/trait_insta360.py`** | Flux Insta 360 seul. Script autonome. |
 | **`scripts/convert_gs_vision_v2.py`** | Conversion GS-Vision vers structure projet. Script autonome. |
 
-Voir [scripts/README.md](scripts/README.md) pour l'usage des scripts. Ils ne génèrent pas `tree_info.csv`, `cloud.laz` ni `aero_cloud.laz` ; à ajouter séparément pour la visualisation complète.
+Voir [scripts/README.md](scripts/README.md) pour l'usage des scripts. Ils ne génèrent pas `tree_info.csv` ni `aero_cloud.laz` ; à ajouter séparément pour la visualisation complète.
 
 ---
 
@@ -202,10 +207,11 @@ Les deux scripts se placent automatiquement dans le répertoire du dépôt (là 
 - Glisser avec le bouton gauche pour faire tourner le nuage.
 - Molette centrale pour déplacer la position d'observation ; molette pour le zoom.
 - Clic droit sur un point d'arbre : affichage des données ; le point devient jaune dans le lidar et sur la carte.
+- **Couches** : menu **Lidar** sélectionner les couches (qsm et/ou nuages) visibles avec les boîtes de sélection
 
 ### Vérouillage à l'arbre
 
-- Cocher **« Vérouiller la vue à l'arbre »** : l'arbre sélectionné reste centré dans les vues photo et lidar.
+- Cocher **« Vérouiller la vue à l'arbre »** en bas de la table d'attribut : l'arbre sélectionné reste centré dans les vues photo et lidar.
 - Changer de photo ou d'arbre recentre sur le nouvel élément.
 - Décocher pour désactiver le mode.
 
@@ -223,6 +229,41 @@ Les deux scripts se placent automatiquement dans le répertoire du dépôt (là 
 2. Choisir **« Créer un nouveau projet »** ou **« Ajouter des photos à un projet existant »**.
    - **Nouveau projet** : indiquer l'emplacement du dossier, puis le nom du projet.
    - **Ajout de scans** : indiquer le dossier du projet existant.
-3. Saisir le nombre de scans et remplir le formulaire (type de données, champs). Pour **Insta 360**, voir [docs/formats_scan_insta360.md](docs/formats_scan_insta360.md).
+3. Saisir le nombre de scans et remplir le formulaire (type de données, champs).
+    Voici des précisions sur les fichiers attendus
+
+    **GS-vision**
+    | Champ | Description |
+    | ----- | ----------- |
+    | GS-vision | Fichier .gs-vision exporté par FARO Connect lors l'assemblage des photos |
+    | Photos panoramiques | Dossier contenant les photos équirectangulaires correspondant aux lignes du GS-vision |
+    | Nuage de points | Fichier LAS ou LAZ du scan mobile. Idéalement, décimé à 10% ou 20% |
+
+    **Insta 360**
+    | Champ | Description |
+    | ----- | ----------- |
+    | Trajectoire photos | Fichier de style CSV séparé par des virgules. Il doit contenir le nom (name), le temps (X..world_time), la position (x, y, z) et l'orientation en radians (yaw, pitch, roll) des photos |
+    | Photos panoramiques | Dossier contenant les photos équirectangulaires aux noms correspondant aux lignes de la trajectoire |
+    | Nuage de points | Fichier LAS ou LAZ du scan mobile. Idéalement, décimé à 10% ou 20% |
+    | Orientation de la caméra | Choisir la direction en fonction du côté du lidar présent au centre des photos. Mettre « Personalisé » ajoutera le champ « Yaw » à la boîte de décalage |
+    | Décalage photo lidar | Ce sont les valeurs de décalage entre l'appareil photo et la donnée de trajectoire. Assurez-vous de bien comprendre la référence du fichier de trajectoire que vous possédez. Les valeurs entrées ici sont les même peu importe si les images sont stabilisées ou non |
+    | Stabilistaion d'image | À cocher si l'horizon de l'image a déjà été stabilisée (flow state). Si la direction des photos est stabilisée, le projet de  sorti ne sera pas fonctionnel |
+
+    **Eagle**
+    | Champ | Description |
+    | ----- | ----------- |
+    | Trajectoire photos | Fichier de trajectoire du lidar |
+    | Photos fisheye | Dossier contenant les photos fisheye horodatées prises par le capteur |
+    | Nuage de points | Fichier LAS ou LAZ du scan mobile. Idéalement, décimé à 10% ou 20% |
+
+    **Hémisphérique**
+    | Champ | Description |
+    | ----- | ----------- |
+    | Trajectoire photos | Fichier de trajectoire du lidar de style CSV séparé par des espaces. Il doit contenir le temps (//worldtime ou %time), la position (x, y, z) et l'orientation en quaternion (q0, q1, q2, q3) des mesures de l'IMU |
+    | Calibration | Fichier cam_cal.json produit par FARO Connect |
+    | Photos fisheye | Dossier contenant les paires de photos fisheye (F/R) horodatées prises par le capteur |
+    | Nuage de points | Fichier LAS ou LAZ du scan mobile. Idéalement, décimé à 10% ou 20% |
+    | Racine Hugin | Répertoire racine de l'installation de Hugin. (ex. `C:\\ProgramFiles\\Hugin`). Vous pouvez télécharger le logiciel Hugin ici : [Téléchargement Hugin](https://hugin.sourceforge.io/download/) |
+
 4. Soumettre et attendre la fin du traitement.
-5. Pour une visualisation complète, ajouter manuellement **`tree_info.csv`**, **`cloud.laz`** et **`aero_cloud.laz`** dans le dossier projet si nécessaire.
+5. Pour une visualisation complète, ajouter manuellement **`tree_info.csv`**, les **nuages de points complémentaires** et les **QSM** dans le dossier projet si nécessaire.
