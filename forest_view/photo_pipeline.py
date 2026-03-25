@@ -1,5 +1,6 @@
 import math
 import os
+import shutil
 import subprocess
 from collections import defaultdict
 
@@ -8,6 +9,36 @@ from PIL import Image
 from forest_view.logger import get_logger
 
 logger = get_logger(__name__)
+
+
+def _resolve_hugin_tools(hugin_root=None):
+    """Résout les exécutables Hugin depuis PATH puis via un dossier d'installation."""
+    tools = (
+        'pto_gen',
+        'pto_merge',
+        'pto_lensstack',
+        'pto_var',
+        'cpfind',
+        'autooptimiser',
+        'nona',
+    )
+    resolved = {}
+    fallback_root = hugin_root or r'C:\Program Files\Hugin'
+    for tool in tools:
+        path = shutil.which(tool) or shutil.which(f'{tool}.exe')
+        if path:
+            resolved[tool] = path
+            continue
+        candidate = os.path.join(fallback_root, 'bin', f'{tool}.exe')
+        if os.path.exists(candidate):
+            resolved[tool] = candidate
+            continue
+        raise RuntimeError(
+            f"Exécutable Hugin introuvable: {tool}. "
+            "Ajoutez Hugin au PATH ou configurez hugin_root."
+        )
+    return resolved
+
 
 def get_valid_pairs(directory):
     """
@@ -50,7 +81,7 @@ def get_valid_pairs(directory):
     return valid_pairs
 
 
-def stitch_photos(pair_list, outdirectory, calibration=None, hugin_root=r'C:\Program Files\Hugin', index_start=0):
+def stitch_photos(pair_list, outdirectory, calibration=None, hugin_root=None, index_start=0):
     """
     Assemble des paires de photos fisheye en photos panoramiques.
 
@@ -58,13 +89,14 @@ def stitch_photos(pair_list, outdirectory, calibration=None, hugin_root=r'C:\Pro
         pair_list (list): Liste de paires d'images à assembler
         outdirectory (str): Répertoire de sortie pour les images assemblées
         calibration (dict, optional): Fichier de calibration
-        hugin_root (str): Chemin vers le répertoire d'installation de Hugin
+        hugin_root (str): Chemin vers le répertoire d'installation de Hugin (optionnel)
         index_start (int): Index de départ pour le numérotage des panoramas
 
     Retourne:
         pair_list modifié (chemins des panoramas)
     """
     os.makedirs(os.path.join(outdirectory, 'panoramas'), exist_ok=True)
+    hugin_tools = _resolve_hugin_tools(hugin_root)
 
     if calibration is None:
         calibration_values = {
@@ -123,27 +155,27 @@ def stitch_photos(pair_list, outdirectory, calibration=None, hugin_root=r'C:\Pro
         imgR_path = pair[0][1]
         try:
             _run([
-                os.path.join(hugin_root, 'bin', 'pto_gen.exe'),
+                hugin_tools['pto_gen'],
                 '-o', 'projet1.pto', '-p', '2',
                 '-c', f'{crop_values["lF"]},{crop_values["rF"]},{crop_values["tF"]},{crop_values["bF"]}',
                 imgF_path
             ])
             _run([
-                os.path.join(hugin_root, 'bin', 'pto_gen.exe'),
+                hugin_tools['pto_gen'],
                 '-o', 'projet2.pto', '-p', '2',
                 '-c', f'{crop_values["lR"]},{crop_values["rR"]},{crop_values["tR"]},{crop_values["bR"]}',
                 imgR_path
             ])
             _run([
-                os.path.join(hugin_root, 'bin', 'pto_merge.exe'),
+                hugin_tools['pto_merge'],
                 '-o', 'projet_merge.pto', 'projet1.pto', 'projet2.pto'
             ])
             _run([
-                os.path.join(hugin_root, 'bin', 'pto_lensstack.exe'),
+                hugin_tools['pto_lensstack'],
                 '-o', 'projet_merge.pto', '--new-lens', 'i1', 'projet_merge.pto'
             ])
             _run([
-                os.path.join(hugin_root, 'bin', 'pto_var.exe'), '-o', 'projet_merge.pto',
+                hugin_tools['pto_var'], '-o', 'projet_merge.pto',
                 '--set', f'y0={calibration_values["yF"]}, r0={calibration_values["rF"]}, p0={calibration_values["pF"]}',
                 '--set', f'v0={calibration_values["vF"]}',
                 '--set', f'a0={calibration_values["aF"]}, b0={calibration_values["bF"]}, c0={calibration_values["cF"]}',
@@ -155,15 +187,15 @@ def stitch_photos(pair_list, outdirectory, calibration=None, hugin_root=r'C:\Pro
                 '--opt', 'v0,v1,y1,p1,r1', 'projet_merge.pto'
             ])
             _run([
-                os.path.join(hugin_root, 'bin', 'cpfind.exe'),
+                hugin_tools['cpfind'],
                 '-o', 'projet_merge.pto', '--fullscale', 'projet_merge.pto'
             ])
             _run([
-                os.path.join(hugin_root, 'bin', 'autooptimiser.exe'),
+                hugin_tools['autooptimiser'],
                 '-o', 'projet_merge.pto', '-n', 'projet_merge.pto'
             ])
             _run([
-                os.path.join(hugin_root, 'bin', 'nona.exe'),
+                hugin_tools['nona'],
                 '-o', os.path.join(outdirectory, 'panoramas', f'pano{i + index_start:04d}'),
                 '-m', 'JPEG', 'projet_merge.pto'
             ])
