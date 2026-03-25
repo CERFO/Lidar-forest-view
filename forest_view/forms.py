@@ -1,7 +1,8 @@
 import os
 import sys
+from pathlib import Path
 
-from PyQt6.QtCore import Qt, QEvent
+from PyQt6.QtCore import Qt, QEvent, QStandardPaths
 from PyQt6.QtGui import QFont, QCursor
 from PyQt6.QtWidgets import (
     QDialog,
@@ -41,7 +42,8 @@ class DataForm(QDialog):
 
         self.fields = {}
         self.paths = {}
-        self.memory = readJSON('appsettings.json') if os.path.exists('appsettings.json') else {}
+        self.settings_path = self._resolve_settings_path()
+        self.memory = self._load_settings()
         self._instant_tooltip = {}
 
         _hints_path = os.path.join(os.path.dirname(__file__), 'field_hints.json')
@@ -57,6 +59,22 @@ class DataForm(QDialog):
         self.submit_button.clicked.connect(self.submit_data)
         self.layout.addRow(self.submit_button)
         self.setLayout(self.layout)
+
+    def _resolve_settings_path(self):
+        config_dir = QStandardPaths.writableLocation(QStandardPaths.StandardLocation.AppConfigLocation)
+        if not config_dir:
+            return Path('appsettings.json')
+        config_path = Path(config_dir)
+        config_path.mkdir(parents=True, exist_ok=True)
+        return config_path / 'appsettings.json'
+
+    def _load_settings(self):
+        if self.settings_path.exists():
+            return readJSON(self.settings_path)
+        legacy_path = Path('appsettings.json')
+        if legacy_path.exists():
+            return readJSON(legacy_path)
+        return {}
 
     def add_field(self, label_text, field_name, path_type, help_text=None):
         """Ajoute un champ de saisie avec label, optionnellement une infobulle au survol, et bouton Parcourir."""
@@ -113,7 +131,7 @@ class DataForm(QDialog):
             for field_name, line_edit in self.fields.items():
                 self.paths[field_name] = line_edit.text()
                 self.memory[field_name] = line_edit.text()
-            writeJSON('appsettings.json', self.memory)
+            writeJSON(self.settings_path, self.memory)
             self.accept()
             self.close()
         else:
