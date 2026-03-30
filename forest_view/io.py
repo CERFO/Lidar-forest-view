@@ -41,11 +41,25 @@ def writeCSV(filename, data, header=None, delimiter=','):
         header (list, optional): En-tête des colonnes
         delimiter (str): Séparateur (par défaut : virgule)
     """
-    with open(filename, 'w', newline='', encoding='utf-8') as file:
-        csvwriter = csv.writer(file, delimiter=delimiter)
-        if header:
-            csvwriter.writerow(header)
-        csvwriter.writerows(data)
+    if isinstance(data[0], list):
+        with open(filename, 'w', newline='', encoding='utf-8') as file:
+            csvwriter = csv.writer(file, delimiter=delimiter)
+            if header:
+                csvwriter.writerow(header)
+            csvwriter.writerows(data)
+    elif isinstance(data[0], dict):
+        fieldnames = list(dict.fromkeys(
+            key for entry in data for key in entry.keys()
+        ))
+
+        with open(filename, 'w', newline='', encoding='utf-8') as file:
+            csvwriter = csv.DictWriter(file, fieldnames=fieldnames)
+            csvwriter.writeheader()
+            csvwriter.writerows(data)
+    else :
+        print('Format de données non supporté pour l\'écriture')
+        logger.info('Format de données non supporté pour l\'écriture')
+        return
     print(f"Données exportées vers {filename}")
     logger.info("Données exportées vers %s", filename)
 

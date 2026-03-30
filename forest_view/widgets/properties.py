@@ -11,6 +11,8 @@ class ProprietyWidget(QWidget):
     Clic sur un arbre dans la carte → surligne la ligne ; sélection d'une ligne → surligne l'arbre sur la carte.
     """
     tree_row_selected = pyqtSignal(object)
+    tree_data_changed = pyqtSignal(object)
+    saved_data = pyqtSignal(object)
 
     def __init__(self, fields):
         super().__init__()
@@ -18,6 +20,7 @@ class ProprietyWidget(QWidget):
         self._all_data = []
         self._selecting_programmatically = False
         self._filter_only_selected = False
+        self._changes_made = False
         self.table = QTableWidget()
         self.table.setAlternatingRowColors(True)
         self.table.horizontalHeader().setStretchLastSection(True)
@@ -26,6 +29,7 @@ class ProprietyWidget(QWidget):
         self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
+        self.table.cellChanged.connect(self._on_cell_changed)
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(self.table)
@@ -110,6 +114,36 @@ class ProprietyWidget(QWidget):
         row = self.table.currentRow()
         if 0 <= row < len(self._all_data):
             self.tree_row_selected.emit((row, self._all_data[row]))
+
+    def toggle_edition(self, on):
+        self._selecting_programmatically = True
+        if on:
+            self.table.setEditTriggers(QTableWidget.EditTrigger.DoubleClicked)
+            for row in range(self.table.rowCount()):
+                for col in range(self.table.columnCount()):
+                    item = self.table.item(row,col)
+                    item.setFlags(item.flags() | Qt.ItemFlag.ItemIsEditable)
+        else:
+            self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+            for row in range(self.table.rowCount()):
+                for col in range(self.table.columnCount()):
+                    item = self.table.item(row,col)
+                    item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+        self._selecting_programmatically = False
+
+    def _on_cell_changed(self, row, col):
+        if self._selecting_programmatically or not self._all_data:
+            return
+        else:
+            self._all_data[row][self.table.horizontalHeaderItem(col).text()] = self.table.item(row,col).text()
+            changed_line = [[self.table.horizontalHeaderItem(c).text(), self.table.item(row, c).text()] for c in range(self.table.columnCount())]
+            self.tree_data_changed.emit((row, {k:v for k, v in changed_line}))
+            self._changes_made = True
+
+    def on_save(self, clicked):
+        if self._changes_made:
+            self.saved_data.emit(self._all_data)
+            self._changes_made = False
 
     def reset(self):
         """Vide les lignes en gardant les en-têtes de colonnes."""

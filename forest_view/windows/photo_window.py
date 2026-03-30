@@ -19,7 +19,7 @@ from forest_view.widgets import GLWidget, CustomMapWidget, ProprietyWidget
 SIDE_PANEL_WIDTH = 340
 TOGGLE_STRIP_WIDTH = 28
 TOGGLE_MAP_BTN_WIDTH = 28
-BOTTOM_PANEL_HEIGHT = 180
+BOTTOM_PANEL_HEIGHT = 200
 TOGGLE_STRIP_HEIGHT = 28
 TOGGLE_TABLE_BTN_MIN_WIDTH = 140
 
@@ -83,7 +83,7 @@ class PhotoWindow(QMainWindow):
             fields = [k for k in tree_info[0].keys() if k not in {'x', 'y', 'z'}]
             self.propriety_widget = ProprietyWidget(fields)
             self.propriety_widget.load_all_data(tree_info)
-        self.tree_focus_box = QCheckBox('Verouiller la vue à l\'arbre', self)
+        self.tree_focus_box = QCheckBox('Verrouiller la vue à l\'arbre', self)
 
         self.filter_selected_only_cb = QCheckBox("Afficher uniquement la ligne sélectionnée", self)
         self.filter_selected_only_cb.setChecked(False)
@@ -95,13 +95,27 @@ class PhotoWindow(QMainWindow):
         bottom_options_layout.addWidget(self.filter_selected_only_cb)
         bottom_options_layout.addWidget(self.tree_focus_box)
         bottom_options_layout.addStretch()
+
+        self.edit_cb = QCheckBox('Édition', self)
+        self.edit_cb.setChecked(False)
+        self.edit_cb.toggled.connect(self.propriety_widget.toggle_edition)
+        self.save_btn = QPushButton('Sauvegarder', self)
+        self.save_btn.clicked.connect(self.propriety_widget.on_save)
+        top_options = QWidget()
+        top_options_layout = QHBoxLayout(top_options)
+        top_options_layout.setContentsMargins(0, 4, 0, 0)
+        top_options_layout.setSpacing(12)
+        top_options_layout.addWidget(self.edit_cb)
+        top_options_layout.addWidget(self.save_btn)
+        top_options_layout.addStretch()
+
         propriety_box = QGroupBox('Propriétés')
-        propriety_box_layout = QVBoxLayout()
+        propriety_box_layout = QVBoxLayout(propriety_box)
         propriety_box_layout.setContentsMargins(1, 0, 1, 1)
         propriety_box_layout.setSpacing(0)
+        propriety_box_layout.addWidget(top_options)
         propriety_box_layout.addWidget(self.propriety_widget, 2)
         propriety_box_layout.addWidget(bottom_options)
-        propriety_box.setLayout(propriety_box_layout)
 
         self.bottom_panel = QWidget()
         self.bottom_panel.setFixedHeight(BOTTOM_PANEL_HEIGHT)

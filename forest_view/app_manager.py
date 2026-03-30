@@ -5,7 +5,7 @@ from PyQt6.QtCore import QObject, QTimer
 from PyQt6.QtWidgets import QApplication, QDialog, QMessageBox, QVBoxLayout, QWidget
 
 from forest_view.forms import DataForm
-from forest_view.io import CSV_to_dict
+from forest_view.io import CSV_to_dict, writeCSV
 from forest_view.logger import get_logger
 from forest_view.widgets import show_overlay
 from forest_view.widgets.map import BASEMAP_OSM
@@ -94,11 +94,17 @@ class AppManager(QObject):
         self.photo_window.map_widget.new_tree_attributes.connect(
             self.photo_window.propriety_widget.select_row_for_tree
         )
+        self.photo_window.propriety_widget.saved_data.connect(
+            self.update_tree_info
+        )
         self.photo_window.propriety_widget.tree_row_selected.connect(
             self.photo_window.map_widget.highlight_tree_by_data
         )
+        self.photo_window.propriety_widget.tree_data_changed.connect(
+            self.photo_window.map_widget.update_tree_data
+        )
         self.lidar_window.lidar_tree_selected.connect(
-            self.photo_window.map_widget.find_point
+            self.photo_window.map_widget.highlight_tree_by_location
         )
         self.lidar_window.lidar_tree_selected.connect(
             self.photo_window.gl_widget.on_tree_selection
@@ -235,6 +241,11 @@ class AppManager(QObject):
 
     def set_lidar_visibility(self, group, state):
         self.lidar_window.set_visibility(group, state)
+
+    def update_tree_info(self, list_of_dicts):
+        for i, tree_data in enumerate(list_of_dicts):
+            self.tree_info[i].update(tree_data)
+        writeCSV(self.project_dir / 'tree_info.csv', self.tree_info)
 
     def change_site(self):
         """Demande confirmation, ferme les fenêtres de navigation et retourne au choix du projet."""
