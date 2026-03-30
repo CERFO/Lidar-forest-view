@@ -94,6 +94,9 @@ class AppManager(QObject):
         self.photo_window.map_widget.new_tree_attributes.connect(
             self.photo_window.propriety_widget.select_row_for_tree
         )
+        self.photo_window.map_widget.map_tree_deleted.connect(
+            self.lidar_window.delete_tree
+        )
         self.photo_window.propriety_widget.saved_data.connect(
             self.update_tree_info
         )
@@ -102,6 +105,9 @@ class AppManager(QObject):
         )
         self.photo_window.propriety_widget.tree_data_changed.connect(
             self.photo_window.map_widget.update_tree_data
+        )
+        self.photo_window.propriety_widget.row_removed.connect(
+            self.photo_window.map_widget.remove_tree
         )
         self.lidar_window.lidar_tree_selected.connect(
             self.photo_window.map_widget.highlight_tree_by_location
@@ -242,7 +248,9 @@ class AppManager(QObject):
     def set_lidar_visibility(self, group, state):
         self.lidar_window.set_visibility(group, state)
 
-    def update_tree_info(self, list_of_dicts):
+    def update_tree_info(self, list_of_dicts, deleted_rows):
+        for row in deleted_rows:
+            del self.tree_info[row]
         for i, tree_data in enumerate(list_of_dicts):
             self.tree_info[i].update(tree_data)
         writeCSV(self.project_dir / 'tree_info.csv', self.tree_info)

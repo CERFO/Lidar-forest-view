@@ -166,6 +166,19 @@ class LidarWindow(QMainWindow):
         self.plotter.add_mesh(tree_position_centered, name='selected_point', point_size=30, color='yellow')
         self._highlight_selected_label(tree_position_centered)
 
+    def delete_tree(self, tree_position):
+        """ Retire le point d'arbre à la position fournie"""
+        tree_position_centered = tree_position - self.translation
+        for i, tree in enumerate(self._tree_positions_centered):
+            if all(tree == tree_position_centered):
+                self._tree_positions_centered = np.delete(self._tree_positions_centered, i, axis = 0)
+                del self._tree_labels[i]
+                break
+        self.plotter.add_point_labels(
+            self._tree_positions_centered, self._tree_labels, name='arbres', point_size=30, point_color='pink',
+            font_size=TREE_LABEL_FONT_SIZE, always_visible=True, pickable=True
+        )
+
     def _highlight_selected_label(self, position_centered):
         """Affiche le libellé (No_tige) de l'arbre sélectionné en surbrillance dans le nuage de points."""
         if not hasattr(self, '_tree_positions_centered') or self._tree_positions_centered is None:

@@ -94,6 +94,7 @@ class CustomMapWidget(QGraphicsView):
     new_panorama = pyqtSignal(str, float, float, float)
     new_tree_attributes = pyqtSignal(object)
     map_tree_selected = pyqtSignal(object)
+    map_tree_deleted = pyqtSignal(object)
 
     def __init__(self, photo_coordinates, tree_coordinates=None, crs_epsg=4326, basemap_id=None):
         super().__init__()
@@ -420,6 +421,23 @@ class CustomMapWidget(QGraphicsView):
     def update_tree_data(self, payload):
         """ Trouve puis met à lour la donnée d'un point d'arbre
         payload = (row_index, tree_data) ou tree_data"""
-        item = self.find_tree_by_data(payload)
-        if item is not None:
-            item.tree_data.update(payload[1] if isinstance(payload, (list, tuple)) and len(payload) == 2 else payload)
+        tree = self.find_tree_by_data(payload)
+        if tree is not None:
+            tree.tree_data.update(payload[1] if isinstance(payload, (list, tuple)) and len(payload) == 2 else payload)
+
+    def remove_tree(self, payload):
+        """ Retire un point d'arbre de l'affichage
+        payload = (row_index, tree_data) ou tree_data"""
+        tree = self.find_tree_by_data(payload)
+        if tree is not None:
+            if tree.data_x is not None and tree.data_y is not None:
+                tree_position = np.array([tree.data_x, tree.data_y, tree.z])
+            else:
+                px, py = tree.pos().x(), tree.pos().y()
+                tree_position = np.array([px, -py, tree.z])
+            self.map_tree_deleted.emit(tree_position)
+            
+            self.scene.removeItem(tree)
+            for item in self.scene.items():
+                if isinstance(item, TreePoint) and getattr(item, 'row_index', None) >= payload[0]:
+                    item.row_index -= 1

@@ -12,15 +12,18 @@ class ProprietyWidget(QWidget):
     """
     tree_row_selected = pyqtSignal(object)
     tree_data_changed = pyqtSignal(object)
-    saved_data = pyqtSignal(object)
+    saved_data = pyqtSignal(object, object)
+    row_removed = pyqtSignal(object)
 
     def __init__(self, fields):
         super().__init__()
         self._fields = []
         self._all_data = []
+        self._deleted_rows = []
         self._selecting_programmatically = False
         self._filter_only_selected = False
         self._changes_made = False
+        self._editing = False
         self.table = QTableWidget()
         self.table.setAlternatingRowColors(True)
         self.table.horizontalHeader().setStretchLastSection(True)
@@ -117,6 +120,7 @@ class ProprietyWidget(QWidget):
 
     def toggle_edition(self, on):
         self._selecting_programmatically = True
+        self._editing = on
         if on:
             self.table.setEditTriggers(QTableWidget.EditTrigger.DoubleClicked)
             for row in range(self.table.rowCount()):
@@ -142,8 +146,20 @@ class ProprietyWidget(QWidget):
 
     def on_save(self, clicked):
         if self._changes_made:
-            self.saved_data.emit(self._all_data)
+            # Ajouter les lignes retirées dans le signal
+            self.saved_data.emit(self._all_data, self._deleted_rows)
             self._changes_made = False
+            self._deleted_rows = []
+
+    def delete_current_line(self, clicked):
+        if self._editing:
+            row = self.table.currentRow()
+            self._deleted_rows.append(row)
+            self.table.removeRow(row)
+            tree_data = self._all_data[row]
+            del self._all_data[row]
+            self.row_removed.emit((row, tree_data))
+            self._changes_made = True
 
     def reset(self):
         """Vide les lignes en gardant les en-têtes de colonnes."""
