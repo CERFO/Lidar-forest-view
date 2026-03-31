@@ -169,6 +169,7 @@ class AppManager(QObject):
                     self.photo_window.map_widget.pointer.rotate_pointer(yaw)
                     self.lidar_window.update_camera_position(np.array([x, y, z]))
                     self.photo_window.gl_widget.on_photo_selection(np.array([x, y, z]))
+                    self.lidar_window.set_forward_view_from_yaw(yaw)
                     QApplication.processEvents()
             finally:
                 overlay.dismiss()
@@ -211,7 +212,7 @@ class AppManager(QObject):
             self._unified_window.on_change_site_requested = self.change_site
             self._unified_window.on_crs_changed = self.set_map_crs
             self._unified_window.on_basemap_changed = self.set_map_basemap
-            self._unified_window.on_lidar_vis_change = self.set_lidar_visibility
+            self._bind_unified_lidar_controls()
             self._unified_window._cleanup_before_quit = self._release_vtk_before_quit
         lidar_w = self.lidar_window.centralWidget()
         photo_content = self.photo_window.centralWidget()
@@ -225,6 +226,26 @@ class AppManager(QObject):
         self._unified_window.show()
         self._unified_window.raise_()
         self._unified_window.activateWindow()
+
+    def _bind_unified_lidar_controls(self):
+        """
+        Relie les contrôles du menu Lidar à la vue 3D.
+
+        Comportement attendu des options :
+        - Taille des points : taille de base utilisée par les nuages.
+        - Taille adaptative : ajuste cette taille de base selon la distance caméra/focale.
+        - Profondeur adaptative : distance des premiers mètres où la taille passe de 10 à la taille de base.
+        - Réinitialiser la vue : revient au point de vue aligné sur la photo courante.
+        - Lock world up : contraint le haut de la caméra sur +Z (horizon stable).
+        - Couleur des points : applique la couleur aux nuages existants et futurs.
+        """
+        self._unified_window.on_lidar_vis_change = self.set_lidar_visibility
+        self._unified_window.on_lidar_point_size_change = self.set_lidar_point_size
+        self._unified_window.on_lidar_adaptive_point_size_change = self.set_lidar_adaptive_point_size
+        self._unified_window.on_lidar_adaptive_max_depth_change = self.set_lidar_adaptive_max_depth
+        self._unified_window.on_lidar_reset_view_requested = self.reset_lidar_view
+        self._unified_window.on_lidar_lock_world_up_change = self.set_lidar_lock_world_up
+        self._unified_window.on_lidar_point_color_change = self.set_lidar_point_color
 
     def set_map_crs(self, epsg: int):
         """Change le CRS de la carte et redessine avec les mêmes données."""
@@ -247,6 +268,24 @@ class AppManager(QObject):
 
     def set_lidar_visibility(self, group, state):
         self.lidar_window.set_visibility(group, state)
+
+    def set_lidar_point_size(self, size):
+        self.lidar_window.set_point_size(size)
+
+    def set_lidar_adaptive_point_size(self, state):
+        self.lidar_window.set_adaptive_point_size(state)
+
+    def set_lidar_adaptive_max_depth(self, max_depth):
+        self.lidar_window.set_adaptive_max_depth(max_depth)
+
+    def reset_lidar_view(self):
+        self.lidar_window.reset_view()
+
+    def set_lidar_lock_world_up(self, state):
+        self.lidar_window.set_lock_world_up(state)
+
+    def set_lidar_point_color(self, color_rgb):
+        self.lidar_window.set_point_color(color_rgb)
 
     def update_tree_info(self, list_of_dicts, deleted_rows):
         for row in deleted_rows:

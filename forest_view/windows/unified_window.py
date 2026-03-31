@@ -2,8 +2,11 @@ from PyQt6.QtCore import Qt, QRect
 from PyQt6.QtGui import QAction
 from PyQt6.QtWidgets import (
     QApplication,
+    QColorDialog,
+    QDoubleSpinBox,
     QInputDialog,
     QHBoxLayout,
+    QLabel,
     QMainWindow,
     QMenu,
     QMenuBar,
@@ -87,6 +90,12 @@ class UnifiedWindow(QMainWindow):
         self.on_crs_changed = None
         self.on_basemap_changed = None
         self.on_lidar_vis_change = None
+        self.on_lidar_point_size_change = None
+        self.on_lidar_adaptive_point_size_change = None
+        self.on_lidar_adaptive_max_depth_change = None
+        self.on_lidar_reset_view_requested = None
+        self.on_lidar_lock_world_up_change = None
+        self.on_lidar_point_color_change = None
         self._lidar_widget = None
         self._panorama_container = None
         self._right_container = None
@@ -144,6 +153,81 @@ class UnifiedWindow(QMainWindow):
         cloud_vis_act = QWidgetAction(self)
         cloud_vis_act.setDefaultWidget(cloud_vis_box)
         menu_lidar.addAction(cloud_vis_act)
+        self._action_reset_lidar_view = QAction("Réinitialiser la vue", self)
+        self._action_reset_lidar_view.setStatusTip(
+            "Revient à la vue lidar alignée sur la photo active."
+        )
+        self._action_reset_lidar_view.triggered.connect(self._on_reset_lidar_view)
+        menu_lidar.addAction(self._action_reset_lidar_view)
+        self._action_point_color = QAction("Couleur des points…", self)
+        self._action_point_color.setStatusTip(
+            "Applique une couleur aux nuages de points actuels et futurs."
+        )
+        self._action_point_color.triggered.connect(self._on_point_color_picker)
+        menu_lidar.addAction(self._action_point_color)
+        menu_lidar.addSeparator()
+        point_size_row = QWidget(self)
+        point_size_layout = QHBoxLayout(point_size_row)
+        point_size_layout.setContentsMargins(6, 2, 6, 2)
+        point_size_layout.setSpacing(6)
+        point_size_layout.addWidget(QLabel('Taille des points', self))
+        self._point_size_spin = QDoubleSpinBox(self)
+        self._point_size_spin.setRange(1.0, 10.0)
+        self._point_size_spin.setDecimals(0)
+        self._point_size_spin.setSingleStep(1.0)
+        self._point_size_spin.setValue(1.0)
+        self._point_size_spin.setToolTip(
+            "Taille de base des points. Utilisée aussi comme référence en mode adaptatif."
+        )
+        self._point_size_spin.valueChanged.connect(self._on_point_size_changed)
+        point_size_layout.addWidget(self._point_size_spin)
+        point_size_act = QWidgetAction(self)
+        point_size_act.setDefaultWidget(point_size_row)
+        menu_lidar.addAction(point_size_act)
+        adaptive_size_box = QCheckBox('Taille adaptative (caméra)', self)
+        adaptive_size_box.setChecked(False)
+        adaptive_size_box.setToolTip(
+            "Ajuste la taille de base selon la distance caméra/focale."
+        )
+        adaptive_size_box.stateChanged.connect(
+            lambda: self._on_adaptive_point_size_change(adaptive_size_box.isChecked())
+        )
+        adaptive_size_act = QWidgetAction(self)
+        adaptive_size_act.setDefaultWidget(adaptive_size_box)
+        menu_lidar.addAction(adaptive_size_act)
+        adaptive_depth_row = QWidget(self)
+        adaptive_depth_layout = QHBoxLayout(adaptive_depth_row)
+        adaptive_depth_layout.setContentsMargins(6, 2, 6, 2)
+        adaptive_depth_layout.setSpacing(6)
+        adaptive_depth_layout.addWidget(QLabel('Profondeur adaptative (m)', self))
+        self._adaptive_depth_spin = QDoubleSpinBox(self)
+        self._adaptive_depth_spin.setRange(1.0, 15.0)
+        self._adaptive_depth_spin.setDecimals(1)
+        self._adaptive_depth_spin.setSingleStep(1.0)
+        self._adaptive_depth_spin.setValue(5.0)
+        self._adaptive_depth_spin.setToolTip(
+            "Distance (m) sur laquelle la taille passe de 10 à la taille de base."
+        )
+        self._adaptive_depth_spin.valueChanged.connect(self._on_adaptive_max_depth_changed)
+        adaptive_depth_layout.addWidget(self._adaptive_depth_spin)
+        adaptive_depth_act = QWidgetAction(self)
+        adaptive_depth_act.setDefaultWidget(adaptive_depth_row)
+        menu_lidar.addAction(adaptive_depth_act)
+        lock_world_up_box = QCheckBox('Lock world up', self)
+        lock_world_up_box.setChecked(True)
+        lock_world_up_box.setToolTip(
+            "Maintient le haut de la scène vers +Z pour éviter la rotation de l'horizon."
+        )
+        lock_world_up_box.stateChanged.connect(
+            lambda: self._on_lock_world_up_change(lock_world_up_box.isChecked())
+        )
+        lock_world_up_act = QWidgetAction(self)
+        lock_world_up_act.setDefaultWidget(lock_world_up_box)
+        menu_lidar.addAction(lock_world_up_act)
+        menu_lidar.addSeparator()
+        self._action_lidar_help = QAction("Aide", self)
+        self._action_lidar_help.triggered.connect(self._show_lidar_settings_help)
+        menu_lidar.addAction(self._action_lidar_help)
         menu_bar.addMenu(menu_lidar)
         self.setMenuBar(menu_bar)
 
@@ -241,6 +325,47 @@ class UnifiedWindow(QMainWindow):
     def _on_visibility_change(self, group, state):
         if callable(self.on_lidar_vis_change):
             self.on_lidar_vis_change(group, state)
+
+    def _on_point_size_changed(self, value):
+        if callable(self.on_lidar_point_size_change):
+            self.on_lidar_point_size_change(float(value))
+
+    def _on_adaptive_point_size_change(self, state):
+        if callable(self.on_lidar_adaptive_point_size_change):
+            self.on_lidar_adaptive_point_size_change(bool(state))
+
+    def _on_adaptive_max_depth_changed(self, value):
+        if callable(self.on_lidar_adaptive_max_depth_change):
+            self.on_lidar_adaptive_max_depth_change(float(value))
+
+    def _on_reset_lidar_view(self):
+        if callable(self.on_lidar_reset_view_requested):
+            self.on_lidar_reset_view_requested()
+
+    def _on_lock_world_up_change(self, state):
+        if callable(self.on_lidar_lock_world_up_change):
+            self.on_lidar_lock_world_up_change(bool(state))
+
+    def _on_point_color_picker(self):
+        color = QColorDialog.getColor(parent=self, title="Choisir la couleur des points")
+        if not color.isValid():
+            return
+        if callable(self.on_lidar_point_color_change):
+            self.on_lidar_point_color_change((color.redF(), color.greenF(), color.blueF()))
+
+    def _show_lidar_settings_help(self):
+        QMessageBox.information(
+            self,
+            "Réglages Lidar",
+            (
+                "<b>Taille des points :</b> taille de base des nuages.<br><br>"
+                "<b>Taille adaptative :</b> module la taille de base selon la distance caméra/focale.<br><br>"
+                "<b>Profondeur adaptative :</b> distance des premiers mètres où la taille évolue de 10 à la taille de base.<br><br>"
+                "<b>Lock world up :</b> garde l'axe vertical (+Z) orienté vers le haut.<br><br>"
+                "<b>Couleur des points :</b> applique une couleur aux nuages actuels et futurs.<br><br>"
+                "<b>Réinitialiser la vue :</b> revient à la vue alignée avec la photo active."
+            ),
+        )
 
     def set_basemap_checked(self, provider_id: str):
         """Met à jour la coche du menu Fond de carte (ex. après chargement d'un projet)."""
