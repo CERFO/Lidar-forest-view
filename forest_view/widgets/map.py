@@ -291,6 +291,17 @@ class CustomMapWidget(QGraphicsView):
             self.scene.addItem(self.pointer)
             self.new_pointer_position.connect(self.pointer.setPos)
 
+    def set_layer_visibility(self, layer, state):
+        state = bool(state)
+        if layer == 'photos':
+            for item in self.scene.items():
+                if isinstance(item, PhotoPoint):
+                    item.setVisible(state)
+        elif layer == 'trees':
+            for item in self.scene.items():
+                if isinstance(item, TreePoint):
+                    item.setVisible(state)
+
     def _create_osm_attribution(self):
         """Crée le label d'attribution du fond de carte en bas à gauche."""
         self._osm_attribution_label = QLabel(self)

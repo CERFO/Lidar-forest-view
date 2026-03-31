@@ -222,6 +222,10 @@ class AppManager(QObject):
         self.photo_window.setCentralWidget(QWidget())
         self.lidar_window.hide()
         self.photo_window.hide()
+        trees_count = len(self.tree_info) if self.tree_info else 0
+        photos_count = len(self.photo_info) if self.photo_info else 0
+        self._unified_window.set_vector_counts(trees_count, photos_count)
+        self._unified_window.set_current_point_color(self.lidar_window.get_current_point_color())
         self._unified_window.set_basemap_checked(self._map_basemap)
         self._unified_window.show()
         self._unified_window.raise_()
@@ -246,6 +250,7 @@ class AppManager(QObject):
         self._unified_window.on_lidar_reset_view_requested = self.reset_lidar_view
         self._unified_window.on_lidar_lock_world_up_change = self.set_lidar_lock_world_up
         self._unified_window.on_lidar_point_color_change = self.set_lidar_point_color
+        self._unified_window.on_vector_visibility_change = self.set_vector_visibility
 
     def set_map_crs(self, epsg: int):
         """Change le CRS de la carte et redessine avec les mêmes données."""
@@ -286,6 +291,13 @@ class AppManager(QObject):
 
     def set_lidar_point_color(self, color_rgb):
         self.lidar_window.set_point_color(color_rgb)
+        if self._unified_window is not None:
+            self._unified_window.set_current_point_color(color_rgb)
+
+    def set_vector_visibility(self, layer, state):
+        if layer == 'trees':
+            self.lidar_window.set_visibility('trees', state)
+        self.photo_window.map_widget.set_layer_visibility(layer, state)
 
     def update_tree_info(self, list_of_dicts, deleted_rows):
         for row in deleted_rows:
@@ -293,6 +305,9 @@ class AppManager(QObject):
         for i, tree_data in enumerate(list_of_dicts):
             self.tree_info[i].update(tree_data)
         writeCSV(self.project_dir / 'tree_info.csv', self.tree_info)
+        if self._unified_window is not None:
+            photos_count = len(self.photo_info) if self.photo_info else 0
+            self._unified_window.set_vector_counts(len(self.tree_info), photos_count)
 
     def change_site(self):
         """Demande confirmation, ferme les fenêtres de navigation et retourne au choix du projet."""
