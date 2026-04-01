@@ -95,7 +95,7 @@ class AppManager(QObject):
             self.photo_window.propriety_widget.select_row_for_tree
         )
         self.photo_window.map_widget.map_tree_deleted.connect(
-            self.lidar_window.remove_tree
+            self.lidar_window.remove_tree_at
         )
         self.photo_window.propriety_widget.saved_data.connect(
             self.update_tree_info

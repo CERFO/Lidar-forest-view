@@ -4,8 +4,6 @@ from PyQt6.QtWidgets import QHeaderView, QTableWidget, QTableWidgetItem, QVBoxLa
 from forest_view.utils import _tree_data_match
 from forest_view.forms import NewTreeForm
 
-import numpy as np
-
 
 class ProprietyWidget(QWidget):
     """
@@ -166,7 +164,7 @@ class ProprietyWidget(QWidget):
             return
         self._new_rows += 1
         self.new_tree.emit([data], [self.table.rowCount()])
-        self.new_tree_position.emit(np.asarray([data.get(coord) for coord in ['x','y','z']]), data.get('No_tige'))
+        self.new_tree_position.emit([data.get(coord) for coord in ['x','y','z']], data.get('No_tige'))
         self.load_data(data)
         self._changes_made = True
     
@@ -193,4 +191,8 @@ class ProprietyWidget(QWidget):
         """Vide les lignes en gardant les en-têtes de colonnes."""
         self._all_data = []
         self._filter_only_selected = False
+        self._changes_made = False
+        self._editing = False
+        self._deleted_rows = []
+        self._new_rows = 0
         self.table.setRowCount(0)
