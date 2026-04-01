@@ -95,7 +95,7 @@ class AppManager(QObject):
             self.photo_window.propriety_widget.select_row_for_tree
         )
         self.photo_window.map_widget.map_tree_deleted.connect(
-            self.lidar_window.delete_tree
+            self.lidar_window.remove_tree
         )
         self.photo_window.propriety_widget.saved_data.connect(
             self.update_tree_info
@@ -108,6 +108,15 @@ class AppManager(QObject):
         )
         self.photo_window.propriety_widget.row_removed.connect(
             self.photo_window.map_widget.remove_tree
+        )
+        self.photo_window.propriety_widget.new_tree_pos_requested.connect(
+            self.lidar_window.on_pos_request
+        )
+        self.photo_window.propriety_widget.new_tree.connect(
+            self.photo_window.map_widget.plot_tree_coordinates
+        )
+        self.photo_window.propriety_widget.new_tree_position.connect(
+            self.lidar_window.add_tree
         )
         self.lidar_window.lidar_tree_selected.connect(
             self.photo_window.map_widget.highlight_tree_by_location
@@ -155,7 +164,7 @@ class AppManager(QObject):
 
                 QApplication.processEvents()
                 if tree_info and len(tree_info) > 0:
-                    self.lidar_window.add_trees(tree_info)
+                    self.lidar_window.add_all_trees(tree_info)
                 if photo_info and len(photo_info) > 0:
                     p = photo_info[0]
                     x, y, z = float(p['x']), float(p['y']), float(p['z'])
@@ -299,9 +308,12 @@ class AppManager(QObject):
             self.lidar_window.set_visibility('trees', state)
         self.photo_window.map_widget.set_layer_visibility(layer, state)
 
-    def update_tree_info(self, list_of_dicts, deleted_rows):
+    def update_tree_info(self, list_of_dicts, deleted_rows, new_rows:int):
         for row in deleted_rows:
             del self.tree_info[row]
+        for i in range(new_rows):
+            keys = self.tree_info[0].keys()
+            self.tree_info.append(dict.fromkeys(keys))
         for i, tree_data in enumerate(list_of_dicts):
             self.tree_info[i].update(tree_data)
         writeCSV(self.project_dir / 'tree_info.csv', self.tree_info)

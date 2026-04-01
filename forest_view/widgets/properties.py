@@ -1,7 +1,10 @@
 from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtWidgets import QHeaderView, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget
+from PyQt6.QtWidgets import QHeaderView, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget, QInputDialog
 
 from forest_view.utils import _tree_data_match
+from forest_view.forms import NewTreeForm
+
+import numpy as np
 
 
 class ProprietyWidget(QWidget):
@@ -12,7 +15,10 @@ class ProprietyWidget(QWidget):
     """
     tree_row_selected = pyqtSignal(object)
     tree_data_changed = pyqtSignal(object)
-    saved_data = pyqtSignal(object, object)
+    new_tree_pos_requested = pyqtSignal(bool, object)
+    new_tree = pyqtSignal(list, list)
+    new_tree_position = pyqtSignal(object, object)
+    saved_data = pyqtSignal(list, list, int)
     row_removed = pyqtSignal(object)
 
     def __init__(self, fields):
@@ -20,6 +26,7 @@ class ProprietyWidget(QWidget):
         self._fields = []
         self._all_data = []
         self._deleted_rows = []
+        self._new_rows = 0
         self._selecting_programmatically = False
         self._filter_only_selected = False
         self._changes_made = False
@@ -32,7 +39,6 @@ class ProprietyWidget(QWidget):
         self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
-        self.table.cellChanged.connect(self._on_cell_changed)
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(self.table)
@@ -67,7 +73,6 @@ class ProprietyWidget(QWidget):
                 for col, field in enumerate(self._fields):
                     value = tree_data.get(field, 'ND')
                     item = QTableWidgetItem(str(value))
-                    item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable)
                     self.table.setItem(row, col, item)
             self._apply_filter()
         finally:
@@ -83,16 +88,21 @@ class ProprietyWidget(QWidget):
             for row in range(self.table.rowCount()):
                 self.table.setRowHidden(row, False)
 
-    def load_data(self, data):
-        """Ajoute ou met à jour une ligne avec le dictionnaire data (clés = noms de champs)."""
+    def load_data(self, data, row = None):
+        """Ajoute ou met à jour une ligne avec le dictionnaire data (clés = noms de champs).
+        Row = int: ligne à éditer ou None: ajout d'une ligne"""
+        self._selecting_programmatically = True
         if not self._fields:
             return
-        self.table.setRowCount(1)
+        if row is None or row >= self.table.rowCount():
+            self._all_data.append(data)
+            row = self.table.rowCount()
+            self.table.setRowCount(self.table.rowCount() + 1)
         for col, field in enumerate(self._fields):
             value = data.get(field, 'ND')
             item = QTableWidgetItem(str(value))
-            item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable)
-            self.table.setItem(0, col, item)
+            self.table.setItem(row, col, item)
+        self._selecting_programmatically = False
 
     def select_row_for_tree(self, tree_data):
         """Sélectionne et met en surbrillance la ligne correspondant à tree_data (émet par la carte)."""
@@ -119,39 +129,57 @@ class ProprietyWidget(QWidget):
             self.tree_row_selected.emit((row, self._all_data[row]))
 
     def toggle_edition(self, on):
-        self._selecting_programmatically = True
         self._editing = on
         if on:
             self.table.setEditTriggers(QTableWidget.EditTrigger.DoubleClicked)
-            for row in range(self.table.rowCount()):
-                for col in range(self.table.columnCount()):
-                    item = self.table.item(row,col)
-                    item.setFlags(item.flags() | Qt.ItemFlag.ItemIsEditable)
+            self.table.cellChanged.connect(self._on_cell_changed)
         else:
             self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
-            for row in range(self.table.rowCount()):
-                for col in range(self.table.columnCount()):
-                    item = self.table.item(row,col)
-                    item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable)
-        self._selecting_programmatically = False
+            self.table.cellChanged.disconnect(self._on_cell_changed)
 
     def _on_cell_changed(self, row, col):
-        if self._selecting_programmatically or not self._all_data:
-            return
-        else:
-            self._all_data[row][self.table.horizontalHeaderItem(col).text()] = self.table.item(row,col).text()
-            changed_line = [[self.table.horizontalHeaderItem(c).text(), self.table.item(row, c).text()] for c in range(self.table.columnCount())]
-            self.tree_data_changed.emit((row, {k:v for k, v in changed_line}))
-            self._changes_made = True
+        self._all_data[row][self.table.horizontalHeaderItem(col).text()] = self.table.item(row,col).text()
+        changed_line = [[self.table.horizontalHeaderItem(c).text(), self.table.item(row, c).text() if self.table.item(row, c) is not None else None] for c in range(self.table.columnCount())]
+        self.tree_data_changed.emit((row, {k:v for k, v in changed_line}))
+        self._changes_made = True
 
-    def on_save(self, clicked):
+    def add_col(self):
+        """ Ajoute une colonne d'un nom choisi """
+        if self._editing:
+            name, _ = QInputDialog.getText(self, 'Nom du champ', 'Champ')
+            self.table.insertColumn(self.table.columnCount())
+            col_idx = self.table.columnCount()-1
+            self.table.setHorizontalHeaderItem(col_idx, QTableWidgetItem(name))
+            for row in range(self.table.rowCount()):
+                self.table.setItem(row, col_idx, QTableWidgetItem(str()))
+
+    def add_tree(self):
+        """ Appel le formulaire pour les nouveaux arbres """
+        if self._editing:
+            form = NewTreeForm(self, self._fields, max(float(d.get('No_tige')) for d in self._all_data)+1)
+            form.accepted.connect(lambda: self._dispatch_new_tree_data(form.get_data()))
+            form.show()
+
+    def _dispatch_new_tree_data(self, data):
+        """ Suite de add_tree. Ajoute la donnée à la table et à _all_data. Émet la nouvelle donnée"""
+        if data is None:
+            return
+        self._new_rows += 1
+        self.new_tree.emit([data], [self.table.rowCount()])
+        self.new_tree_position.emit(np.asarray([data.get(coord) for coord in ['x','y','z']]), data.get('No_tige'))
+        self.load_data(data)
+        self._changes_made = True
+    
+    def on_save(self):
+        """ Émet les modifications """
         if self._changes_made:
-            # Ajouter les lignes retirées dans le signal
-            self.saved_data.emit(self._all_data, self._deleted_rows)
+            self.saved_data.emit(self._all_data, self._deleted_rows, self._new_rows)
             self._changes_made = False
             self._deleted_rows = []
+            self._new_rows = 0
 
-    def delete_current_line(self, clicked):
+    def delete_current_line(self):
+        """ Retire la ligne sélectionnée, stock sont index, puis émet la donnée """
         if self._editing:
             row = self.table.currentRow()
             self._deleted_rows.append(row)

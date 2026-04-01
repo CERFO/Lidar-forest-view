@@ -17,6 +17,7 @@ TREE_LABEL_FONT_SIZE = 24
 
 class LidarWindow(QMainWindow):
     lidar_tree_selected = pyqtSignal(object)
+    point_selected = pyqtSignal(object)
 
     def __init__(self):
         super().__init__()
@@ -71,7 +72,7 @@ class LidarWindow(QMainWindow):
             print(f'Le fichier {point_cloud_path} n\'a pas été trouvé')
             logger.info(f'Le fichier {point_cloud_path} n\'a pas été trouvé')
 
-    def add_trees(self, tree_data):
+    def add_all_trees(self, tree_data):
         if tree_data is None:
             return
         tree_pcd = np.vstack((
@@ -92,6 +93,33 @@ class LidarWindow(QMainWindow):
             font_size=TREE_LABEL_FONT_SIZE, always_visible=True, pickable=True
         )
 
+    def add_tree(self, tree_position, tree_label):
+        """ Ajoute un nouvel arbre """
+        tree_position_centered = tree_position - self.translation
+        self._tree_positions_centered = np.vstack([self._tree_positions_centered, tree_position_centered])
+        self._tree_labels.append(str(tree_label))
+        if not self.trees_visible:
+            return
+        self._trees_labels_actor = self.plotter.add_point_labels(
+            self._tree_positions_centered, self._tree_labels, name='arbres', point_size=30, point_color='pink',
+            font_size=TREE_LABEL_FONT_SIZE, always_visible=True, pickable=True
+        )
+
+    def remove_tree(self, tree_position):
+        """ Retire le point d'arbre à la position fournie"""
+        tree_position_centered = tree_position - self.translation
+        for i, tree in enumerate(self._tree_positions_centered):
+            if all(tree == tree_position_centered):
+                self._tree_positions_centered = np.delete(self._tree_positions_centered, i, axis = 0)
+                del self._tree_labels[i]
+                break
+        if not self.trees_visible:
+            return
+        self._trees_labels_actor = self.plotter.add_point_labels(
+            self._tree_positions_centered, self._tree_labels, name='arbres', point_size=30, point_color='pink',
+            font_size=TREE_LABEL_FONT_SIZE, always_visible=True, pickable=True
+        )
+
     def _remove_tree_label_actors(self):
         if self._trees_labels_actor is not None:
             try:
@@ -99,7 +127,7 @@ class LidarWindow(QMainWindow):
             except Exception:
                 pass
             self._trees_labels_actor = None
-        for actor_name in ['arbres', 'selected_label', 'selected_point']:
+        for actor_name in ['arbres-points', 'selected_label-points', 'selected_label-labels']:
             if actor_name in self.plotter.actors:
                 self.plotter.remove_actor(actor_name)
 
@@ -339,6 +367,32 @@ class LidarWindow(QMainWindow):
                     self._enforce_world_up()
                     self.plotter.render()
         return super().eventFilter(obj, event)
+    
+    def on_pos_request(self, enabled: bool, requestor):
+        if enabled:
+            self.point_selected.connect(requestor)
+            self.plotter.disable_picking()
+            self.plotter.enable_point_picking(
+                callback=self._on_pos_picked, show_message=False, color = 'black',
+                point_size = 25, show_point=True, clear_on_no_selection = False, render_points_as_spheres = True
+            )
+            self.plotter.actors.get('arbres-points').pickable = False
+            for actor in self.cloud_group:
+                actor.pickable = True
+        else:
+            self.point_selected.disconnect(requestor)
+            self.plotter.remove_actor('_picked_point')
+            self.plotter.disable_picking()
+            self.plotter.enable_point_picking(
+                callback=self.on_lidar_selected_tree, show_point=False, show_message=False
+            )
+            self.plotter.actors.get('arbres-points').pickable = True
+            for actor in self.cloud_group:
+                actor.pickable = False
+
+    def _on_pos_picked(self, point):
+        point = point + self.translation
+        self.point_selected.emit(point)
 
     def on_lidar_selected_tree(self, picked_point):
         if not self.trees_visible:
@@ -360,21 +414,6 @@ class LidarWindow(QMainWindow):
         tree_position_centered = tree_position - self.translation
         self.plotter.add_mesh(tree_position_centered, name='selected_point', point_size=30, color='yellow')
         self._highlight_selected_label(tree_position_centered)
-
-    def delete_tree(self, tree_position):
-        """ Retire le point d'arbre à la position fournie"""
-        tree_position_centered = tree_position - self.translation
-        for i, tree in enumerate(self._tree_positions_centered):
-            if all(tree == tree_position_centered):
-                self._tree_positions_centered = np.delete(self._tree_positions_centered, i, axis = 0)
-                del self._tree_labels[i]
-                break
-        if not self.trees_visible:
-            return
-        self._trees_labels_actor = self.plotter.add_point_labels(
-            self._tree_positions_centered, self._tree_labels, name='arbres', point_size=30, point_color='pink',
-            font_size=TREE_LABEL_FONT_SIZE, always_visible=True, pickable=True
-        )
 
     def _highlight_selected_label(self, position_centered):
         """Affiche le libellé (No_tige) de l'arbre sélectionné en surbrillance dans le nuage de points."""
@@ -405,7 +444,7 @@ class LidarWindow(QMainWindow):
         self.reset()
         self.load_point_cloud(cloud_path, 'main_cloud')
         if tree_info is not None:
-            self.add_trees(tree_info)
+            self.add_all_trees(tree_info)
 
     def reset(self):
         self.plotter.clear_actors()

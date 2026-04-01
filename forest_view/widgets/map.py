@@ -163,7 +163,7 @@ class CustomMapWidget(QGraphicsView):
             )
             self.scene.addItem(point)
 
-    def plot_tree_coordinates(self, tree_coordinates):
+    def plot_tree_coordinates(self, tree_coordinates, row_idx = None):
         """Affiche les points d'arbres. Reprojection à la volée : crs_epsg → WGS84 (4326) pour la scène et OSM."""
         if not tree_coordinates:
             return
@@ -176,7 +176,7 @@ class CustomMapWidget(QGraphicsView):
             tree_data = {k: v for k, v in entry.items() if k not in {'x', 'y', 'z'}}
             point = TreePoint(
                 scene_x, scene_y, scene_z, tree_data, self, 10,
-                data_x=x_data, data_y=y_data, row_index=row_index
+                data_x=x_data, data_y=y_data, row_index=row_index if row_idx is None else row_idx[row_index]
             )
             self.scene.addItem(point)
 
