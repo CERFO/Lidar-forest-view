@@ -215,6 +215,16 @@ Les deux scripts se placent automatiquement dans le répertoire du dépôt (là 
 - **Lock world up** : garde l'axe vertical (ciel en haut) stable ; peut être désactivé pour autoriser un roulis libre.
 - **Couleur des points** : applique une couleur globale aux nuages déjà chargés et à ceux chargés ensuite.
 
+### Édition de données
+
+- Dans le haut de la section de la table d'attributs, cocher la case édition pour entrer en mode édition
+- Double-cliquer sur une case pour la modifier
+- Le bouton « Effacer la ligne » retire la ligne active
+- Le bouton « Ajouter un champ » fera apparaître un formulaire qui permettra de choisir le nom du champ à ajouter. Une fois le formulaire soumis, ce champ s'ajoutera à la table
+- Le bouton « Retirer un champ » fera apparaître un formulaire qui permettra de retirer un ou plusieurs champs de la table
+- Le bouton « Ajouter un arbre permet d'ajouter une tige via un formulaire. Il est important de sélectionner un emplacement pour l'arbre en question en faisant un clic droit sur le nuage de points, une sphère noir apparaitra au lieu choisi. Le numéro de tige est autoincrémenté, mais il est possible de le modifier au besoin
+- Vous pouvez sauvegarder les modifications apportées avec le bouton « Sauvegarder »
+
 ### Vérouillage à l'arbre
 
 - Cocher **« Vérouiller la vue à l'arbre »** en bas de la table d'attribut : l'arbre sélectionné reste centré dans les vues photo et lidar.

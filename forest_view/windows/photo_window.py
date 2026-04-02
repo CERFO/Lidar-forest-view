@@ -1,5 +1,5 @@
-from PyQt6.QtCore import Qt, QMarginsF, QRect, QSize
-from PyQt6.QtGui import QIcon, QPainter
+from PyQt6.QtCore import Qt, QRect, QSize
+from PyQt6.QtGui import QIcon, QPainter, QIcon
 from PyQt6.QtWidgets import (
     QApplication,
     QGroupBox,
@@ -99,23 +99,27 @@ class PhotoWindow(QMainWindow):
         self.edit_cb = QCheckBox('Édition', self)
         self.edit_cb.setChecked(False)
         self.edit_cb.toggled.connect(self.propriety_widget.toggle_edition)
-        self.save_btn = QPushButton('Sauvegarder', self)
-        self.save_btn.clicked.connect(lambda _: self.propriety_widget.on_save())
-        self.delete_btn = QPushButton('Effacer la ligne', self)
-        self.delete_btn.clicked.connect(lambda _: self.propriety_widget.delete_current_line())
         self.add_row_btn = QPushButton('Ajouter un arbre', self)
-        self.add_row_btn.clicked.connect(lambda _: self.propriety_widget.add_tree())
+        self.add_row_btn.clicked.connect(self.propriety_widget.add_tree)
+        self.remove_row_btn = QPushButton('Effacer la ligne', self)
+        self.remove_row_btn.clicked.connect(self.propriety_widget.delete_current_line)
         self.add_col_btn = QPushButton('Ajouter un champ', self)
         self.add_col_btn.clicked.connect(self.propriety_widget.add_col)
+        self.remove_col_btn = QPushButton('Retirer un champ', self)
+        self.remove_col_btn.clicked.connect(self.propriety_widget.remove_col)
+        self.save_btn = QPushButton('Sauvegarder', self)
+        self.save_btn.clicked.connect(self.propriety_widget.on_save)
+
         top_options = QWidget()
         top_options_layout = QHBoxLayout(top_options)
         top_options_layout.setContentsMargins(0, 4, 0, 0)
         top_options_layout.setSpacing(12)
         top_options_layout.addWidget(self.edit_cb)
-        top_options_layout.addWidget(self.save_btn)
-        top_options_layout.addWidget(self.delete_btn)
         top_options_layout.addWidget(self.add_row_btn)
+        top_options_layout.addWidget(self.remove_row_btn)
         top_options_layout.addWidget(self.add_col_btn)
+        top_options_layout.addWidget(self.remove_col_btn)
+        top_options_layout.addWidget(self.save_btn)
         top_options_layout.addStretch()
 
         propriety_box = QGroupBox('Propriétés')

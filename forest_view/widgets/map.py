@@ -452,3 +452,8 @@ class CustomMapWidget(QGraphicsView):
             for item in self.scene.items():
                 if isinstance(item, TreePoint) and getattr(item, 'row_index', None) >= payload[0]:
                     item.row_index -= 1
+
+    def remove_tree_field(self, field):
+        for item in self.scene.items():
+            if isinstance(item, TreePoint):
+                item.tree_data.pop(field, None)

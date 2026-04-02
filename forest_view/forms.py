@@ -5,6 +5,7 @@ from pathlib import Path
 from PyQt6.QtCore import Qt, QEvent, QStandardPaths
 from PyQt6.QtGui import QFont, QCursor
 from PyQt6.QtWidgets import (
+    QCheckBox,
     QDialog,
     QFileDialog,
     QFormLayout,
@@ -14,6 +15,7 @@ from PyQt6.QtWidgets import (
     QMessageBox,
     QPushButton,
     QToolTip,
+    QVBoxLayout,
     QWidget,
 )
 
@@ -165,7 +167,7 @@ class NewTreeForm(QDialog):
         super().__init__(parent)
 
         self.tree_location = [None, None, None]
-        self.tree_data = dict.fromkeys(fields, '')
+        self.tree_data = dict.fromkeys(fields if len(fields) != 0 else ['No_tige'], '')
         self.tree_data.update({'No_tige': int(tree_number)})
         self.submitted = False
 
@@ -215,3 +217,34 @@ class NewTreeForm(QDialog):
         if hasattr(self.parent(), 'new_tree_pos_requested'):
             self.parent().new_tree_pos_requested.emit(False, self.set_tree_location)
         return super().closeEvent(event)
+    
+class CheckBoxChoiceForm(QDialog):
+    def __init__(self, parent, choices):
+        super().__init__(parent)
+        self.submitted = False
+
+        self.setWindowTitle('Champs à retirer')
+        self.setWindowFlags(
+            self.windowFlags()
+            | Qt.WindowType.WindowStaysOnTopHint
+            | Qt.WindowType.Dialog
+            | Qt.WindowType.WindowCloseButtonHint
+        )
+
+        self.choice_dict = dict.fromkeys(choices, False)
+        layout = QVBoxLayout(self)
+        for choice in choices:
+            cb = QCheckBox(choice, self)
+            cb.setChecked(False)
+            cb.clicked.connect(lambda state, c=choice: self.choice_dict.update({c:state}))
+            layout.addWidget(cb)
+        submit_button = QPushButton("Soumettre")
+        submit_button.clicked.connect(self.submit_choice)
+        layout.addWidget(submit_button)
+
+    def submit_choice(self):
+        self.submitted = True
+        self.accept()
+
+    def get_choices(self):
+        return self.choice_dict

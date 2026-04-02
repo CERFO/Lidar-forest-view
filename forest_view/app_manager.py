@@ -118,6 +118,9 @@ class AppManager(QObject):
         self.photo_window.propriety_widget.new_tree_position.connect(
             self.lidar_window.add_tree
         )
+        self.photo_window.propriety_widget.col_removed.connect(
+            self.photo_window.map_widget.remove_tree_field
+        )
         self.lidar_window.lidar_tree_selected.connect(
             self.photo_window.map_widget.highlight_tree_by_location
         )
@@ -308,12 +311,15 @@ class AppManager(QObject):
             self.lidar_window.set_visibility('trees', state)
         self.photo_window.map_widget.set_layer_visibility(layer, state)
 
-    def update_tree_info(self, list_of_dicts, deleted_rows, new_rows:int):
+    def update_tree_info(self, list_of_dicts, deleted_rows, new_rows:int, deleted_columns):
         for row in deleted_rows:
             del self.tree_info[row]
         for i in range(new_rows):
             keys = self.tree_info[0].keys()
             self.tree_info.append(dict.fromkeys(keys))
+        for col in deleted_columns:
+            for entry in self.tree_info:
+                entry.pop(col, None)
         for i, tree_data in enumerate(list_of_dicts):
             self.tree_info[i].update(tree_data)
         writeCSV(self.project_dir / 'tree_info.csv', self.tree_info)

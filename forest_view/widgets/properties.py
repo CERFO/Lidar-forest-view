@@ -1,8 +1,8 @@
 from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtWidgets import QHeaderView, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget, QInputDialog
+from PyQt6.QtWidgets import QInputDialog, QHeaderView, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget
 
 from forest_view.utils import _tree_data_match
-from forest_view.forms import NewTreeForm
+from forest_view.forms import NewTreeForm, CheckBoxChoiceForm
 
 
 class ProprietyWidget(QWidget):
@@ -16,14 +16,16 @@ class ProprietyWidget(QWidget):
     new_tree_pos_requested = pyqtSignal(bool, object)
     new_tree = pyqtSignal(list, list)
     new_tree_position = pyqtSignal(object, object)
-    saved_data = pyqtSignal(list, list, int)
+    saved_data = pyqtSignal(list, list, int, list)
     row_removed = pyqtSignal(object)
+    col_removed = pyqtSignal(str)
 
     def __init__(self, fields):
         super().__init__()
         self._fields = []
         self._all_data = []
         self._deleted_rows = []
+        self._deleted_cols = []
         self._new_rows = 0
         self._selecting_programmatically = False
         self._filter_only_selected = False
@@ -145,6 +147,7 @@ class ProprietyWidget(QWidget):
         """ Ajoute une colonne d'un nom choisi """
         if self._editing:
             name, _ = QInputDialog.getText(self, 'Nom du champ', 'Champ')
+            self._fields.append(name)
             self.table.insertColumn(self.table.columnCount())
             col_idx = self.table.columnCount()-1
             self.table.setHorizontalHeaderItem(col_idx, QTableWidgetItem(name))
@@ -154,7 +157,10 @@ class ProprietyWidget(QWidget):
     def add_tree(self):
         """ Appel le formulaire pour les nouveaux arbres """
         if self._editing:
-            form = NewTreeForm(self, self._fields, max(float(d.get('No_tige')) for d in self._all_data)+1)
+            if len(self._all_data) == 0:
+                form = NewTreeForm(self, self._fields, 1)
+            else:
+                form = NewTreeForm(self, self._fields, max(float(d.get('No_tige')) for d in self._all_data)+1)
             form.accepted.connect(lambda: self._dispatch_new_tree_data(form.get_data()))
             form.show()
 
@@ -171,10 +177,29 @@ class ProprietyWidget(QWidget):
     def on_save(self):
         """ Émet les modifications """
         if self._changes_made:
-            self.saved_data.emit(self._all_data, self._deleted_rows, self._new_rows)
+            self.saved_data.emit(self._all_data, self._deleted_rows, self._new_rows, self._deleted_cols)
             self._changes_made = False
             self._deleted_rows = []
+            self._deleted_cols = []
             self._new_rows = 0
+
+    def remove_col(self):
+        if self._editing:
+            form = CheckBoxChoiceForm(self, self._fields)
+            form.exec()
+            to_remove = [field for field, remove in form.get_choices().items() if remove is True]
+
+            for field in to_remove:
+                self._deleted_cols.append(field)
+                self._fields.remove(field)
+                for entry in self._all_data:
+                    entry.pop(field, None)
+                for col in range(self.table.columnCount()):
+                    if self.table.horizontalHeaderItem(col).text() == field:
+                        self.table.removeColumn(col)
+                        break
+                self.col_removed.emit(field)
+            self._changes_made = True
 
     def delete_current_line(self):
         """ Retire la ligne sélectionnée, stock sont index, puis émet la donnée """
