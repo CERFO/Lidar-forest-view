@@ -41,6 +41,8 @@ class LidarWindow(QMainWindow):
         self.translation = None
         self.cloud_group = []
         self.qsm_group = []
+        self._tree_positions_centered = None
+        self._tree_labels = None
         self.point_size = 1.0
         self.point_size_min = 1.0
         self.point_size_max = 10.0
@@ -97,22 +99,24 @@ class LidarWindow(QMainWindow):
         """ Ajoute un nouvel arbre """
         tree_position = np.asarray(tree_position)
         tree_position_centered = tree_position - self.translation
-        self._tree_positions_centered = np.vstack([self._tree_positions_centered, tree_position_centered])
+        self._tree_positions_centered = (np.vstack([self._tree_positions_centered, tree_position_centered]) 
+                                         if self._tree_positions_centered is not None else np.asarray([tree_position_centered]))
+        if self._tree_labels is None:
+            self._tree_labels = []
         self._tree_labels.append(str(tree_label))
-        if not self.trees_visible:
-            return
         if self.trees_visible:
             self._update_tree_points()
 
     def _update_tree_points(self):
-        pre = self.plotter.actors
-        self.plotter.add_point_labels(
-            self._tree_positions_centered, self._tree_labels, name='arbres', point_size=30, point_color='pink',
-            font_size=TREE_LABEL_FONT_SIZE, always_visible=True, pickable=self._trees_pickable
-        )
-        self._tree_actors.update([key for key in self.plotter.actors.keys() if key not in pre])
+        if list(self._tree_positions_centered) and self._tree_labels:
+            pre = self.plotter.actors
+            self.plotter.add_point_labels(
+                self._tree_positions_centered, self._tree_labels, name='arbres', point_size=30, point_color='pink',
+                font_size=TREE_LABEL_FONT_SIZE, always_visible=True, pickable=self._trees_pickable
+            )
+            self._tree_actors.update([key for key in self.plotter.actors.keys() if key not in pre])
 
-    def remove_tree_at(self, tree_position):
+    def remove_tree_at(self, tree_position, remove_label:bool = False):
         """ Retire le point d'arbre à la position fournie """
         tree_position_centered = tree_position - self.translation
         for i, tree in enumerate(self._tree_positions_centered):

@@ -41,6 +41,8 @@ def writeCSV(filename, data, header=None, delimiter=','):
         header (list, optional): En-tête des colonnes
         delimiter (str): Séparateur (par défaut : virgule)
     """
+    if not data:
+        return
     if isinstance(data[0], list):
         with open(filename, 'w', newline='', encoding='utf-8') as file:
             csvwriter = csv.writer(file, delimiter=delimiter)
