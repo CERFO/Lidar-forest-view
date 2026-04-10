@@ -313,7 +313,10 @@ class AppManager(QObject):
 
     def update_tree_info(self, list_of_dicts):
         self.tree_info = list_of_dicts
-        writeCSV(self.project_dir / 'tree_info.csv', self.tree_info)
+        header = None
+        if not list_of_dicts:
+            header = self.photo_window.propriety_widget.get_field_names()
+        writeCSV(self.project_dir / 'tree_info.csv', self.tree_info, header=header)
         if self._unified_window is not None:
             photos_count = len(self.photo_info) if self.photo_info else 0
             self._unified_window.set_vector_counts(len(self.tree_info), photos_count)

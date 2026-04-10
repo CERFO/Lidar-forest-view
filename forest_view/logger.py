@@ -1,7 +1,9 @@
 import logging
 import os
 import re
+import sys
 import threading
+import warnings
 import zipfile
 from datetime import date
 
@@ -112,6 +114,31 @@ class DailyRotatingFileHandler(logging.Handler):
         super().close()
 
 
+class _LoggerWriter:
+    """Redirects writes to a logger at the given level, buffering by line."""
+
+    def __init__(self, logger, level):
+        self._logger = logger
+        self._level = level
+        self._buf = ""
+
+    def write(self, msg):
+        self._buf += msg
+        while "\n" in self._buf:
+            line, self._buf = self._buf.split("\n", 1)
+            if line.strip():
+                self._logger.log(self._level, line)
+
+    def flush(self):
+        if self._buf.strip():
+            self._logger.log(self._level, self._buf)
+            self._buf = ""
+
+    def fileno(self):
+        # Some libraries (e.g. VTK) call fileno(); return the real stderr fd
+        return 2
+
+
 _initialized = False
 
 
@@ -133,6 +160,13 @@ def setup_logging(log_dir=None):
     root = logging.getLogger()
     root.setLevel(logging.DEBUG)
     root.addHandler(handler)
+
+    # Route Python warnings (e.g. numpy RuntimeWarning) through logging
+    logging.captureWarnings(True)
+
+    # Route stderr (e.g. VTK errors) to the log file
+    stderr_logger = logging.getLogger("stderr")
+    sys.stderr = _LoggerWriter(stderr_logger, logging.ERROR)
 
 
 def get_logger(name, log_dir=None):

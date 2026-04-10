@@ -23,6 +23,8 @@ OSM_USER_AGENT = "UdeSForestView/1.0"
 logger = get_logger(__name__)
 
 BASEMAP_OSM = "osm"
+# Tolérance (coordonnées scène) pour associer un clic LiDAR à un point carte après transformations flottantes.
+_SCENE_POS_TOL = 1e-5
 BASEMAP_PROVIDERS = {
     BASEMAP_OSM: {
         "label": "OpenStreetMap",
@@ -378,7 +380,10 @@ class CustomMapWidget(QGraphicsView):
         items = self.scene.items(QPointF(scene_x, scene_y))
         for item in items:
             if isinstance(item, TreePoint):
-                if item.pos() == QPointF(scene_x, scene_y):
+                p = item.pos()
+                if math.isclose(p.x(), scene_x, abs_tol=_SCENE_POS_TOL, rel_tol=0.0) and math.isclose(
+                    p.y(), scene_y, abs_tol=_SCENE_POS_TOL, rel_tol=0.0
+                ):
                     return item
 
     def find_tree_by_data(self, payload):
@@ -449,9 +454,16 @@ class CustomMapWidget(QGraphicsView):
             self.map_tree_deleted.emit(tree_position)
             
             self.scene.removeItem(tree)
-            for item in self.scene.items():
-                if isinstance(item, TreePoint) and getattr(item, 'row_index', None) >= payload[0]:
-                    item.row_index -= 1
+            removed_row = None
+            if isinstance(payload, (list, tuple)) and len(payload) >= 1:
+                removed_row = payload[0]
+            if isinstance(removed_row, int):
+                for item in self.scene.items():
+                    if not isinstance(item, TreePoint):
+                        continue
+                    ri = getattr(item, 'row_index', None)
+                    if ri is not None and ri >= removed_row:
+                        item.row_index -= 1
 
     def remove_tree_field(self, field):
         for item in self.scene.items():

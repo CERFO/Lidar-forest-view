@@ -42,6 +42,12 @@ def writeCSV(filename, data, header=None, delimiter=','):
         delimiter (str): Séparateur (par défaut : virgule)
     """
     if not data:
+        with open(filename, 'w', newline='', encoding='utf-8') as file:
+            w = csv.writer(file, delimiter=delimiter)
+            if header:
+                w.writerow(header)
+        print(f"Données exportées vers {filename}")
+        logger.info("Données exportées vers %s", filename)
         return
     if isinstance(data[0], list):
         with open(filename, 'w', newline='', encoding='utf-8') as file:

@@ -375,7 +375,10 @@ class UnifiedWindow(QMainWindow):
         if self._lidar_layers_panel.parent() is not right_container:
             self._lidar_layers_panel.setParent(right_container)
             right_layout.insertWidget(0, self._lidar_layers_panel, 0)
-        right_buttons = right_layout.itemAt(right_layout.count() - 1).widget()
+        last_item = right_layout.itemAt(right_layout.count() - 1)
+        if last_item is None:
+            return
+        right_buttons = last_item.widget()
         if right_buttons is not None and right_buttons.layout() is not None:
             right_buttons_layout = right_buttons.layout()
             if self._lidar_toggle_btn.parent() is not right_buttons:

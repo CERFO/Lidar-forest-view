@@ -203,7 +203,7 @@ class NewTreeForm(QDialog):
             self.submitted = True
             self.accept()
         else:
-            QMessageBox.information(self, 'Incomplet', 'Uu arbre doit minimalement avoir une position et un numéro')
+            QMessageBox.information(self, 'Incomplet', 'Un arbre doit minimalement avoir une position et un numéro')
 
     def get_data(self):
         if self.submitted:
@@ -214,14 +214,13 @@ class NewTreeForm(QDialog):
             return None
         
     def closeEvent(self, event):
-        if hasattr(self.parent(), 'new_tree_pos_requested'):
+        if hasattr(self.parent(), 'new_tree_pos_requested') and not self.submitted:
             self.parent().new_tree_pos_requested.emit(False, self.set_tree_location)
         return super().closeEvent(event)
     
 class CheckBoxChoiceForm(QDialog):
     def __init__(self, parent, choices):
         super().__init__(parent)
-        self.submitted = False
 
         self.setWindowTitle('Champs à retirer')
         self.setWindowFlags(
@@ -243,7 +242,6 @@ class CheckBoxChoiceForm(QDialog):
         layout.addWidget(submit_button)
 
     def submit_choice(self):
-        self.submitted = True
         self.accept()
 
     def get_choices(self):

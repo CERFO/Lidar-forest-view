@@ -1,5 +1,14 @@
 from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtWidgets import QInputDialog, QHeaderView, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget
+from PyQt6.QtWidgets import (
+    QDialog,
+    QHeaderView,
+    QInputDialog,
+    QMessageBox,
+    QTableWidget,
+    QTableWidgetItem,
+    QVBoxLayout,
+    QWidget,
+)
 
 from forest_view.utils import _tree_data_match
 from forest_view.forms import NewTreeForm, CheckBoxChoiceForm
@@ -41,6 +50,26 @@ class ProprietyWidget(QWidget):
         layout.addWidget(self.table)
         self.set_fields(fields)
         self.table.itemSelectionChanged.connect(self._on_selection_changed)
+
+    def get_field_names(self):
+        """Noms des colonnes (champs) actuels, pour export CSV lorsque la table est vide."""
+        return list(self._fields)
+
+    @staticmethod
+    def _next_no_tige(all_data):
+        best = 0.0
+        found = False
+        for d in all_data:
+            v = d.get('No_tige')
+            if v is None or v == '':
+                continue
+            try:
+                val = float(v)
+            except (TypeError, ValueError):
+                continue
+            found = True
+            best = max(best, val)
+        return int(best) + 1 if found else 1
 
     def set_filter_only_selected(self, on):
         """Active ou désactive le filtre « afficher uniquement la ligne sélectionnée » (appelé par la case à cocher)."""
@@ -134,7 +163,10 @@ class ProprietyWidget(QWidget):
             self.table.cellChanged.connect(self._on_cell_changed)
         else:
             self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
-            self.table.cellChanged.disconnect(self._on_cell_changed)
+            try:
+                self.table.cellChanged.disconnect(self._on_cell_changed)
+            except (TypeError, RuntimeError):
+                pass
 
     def _on_cell_changed(self, row, col):
         self._all_data[row][self.table.horizontalHeaderItem(col).text()] = self.table.item(row,col).text()
@@ -151,16 +183,16 @@ class ProprietyWidget(QWidget):
                 self.table.insertColumn(self.table.columnCount())
                 col_idx = self.table.columnCount()-1
                 self.table.setHorizontalHeaderItem(col_idx, QTableWidgetItem(name))
+                for entry in self._all_data:
+                    entry[name] = ''
                 for row in range(self.table.rowCount()):
                     self.table.setItem(row, col_idx, QTableWidgetItem(str()))
 
     def add_tree(self):
         """ Appel le formulaire pour les nouveaux arbres """
         if self._editing:
-            if len(self._all_data) == 0:
-                form = NewTreeForm(self, self._fields, 1)
-            else:
-                form = NewTreeForm(self, self._fields, max(float(d.get('No_tige')) for d in self._all_data)+1)
+            next_no = 1 if len(self._all_data) == 0 else self._next_no_tige(self._all_data)
+            form = NewTreeForm(self, self._fields, next_no)
             form.accepted.connect(lambda: self._dispatch_new_tree_data(form.get_data()))
             form.show()
 
@@ -182,8 +214,20 @@ class ProprietyWidget(QWidget):
     def remove_col(self):
         if self._editing and self.table.columnCount() > 0:
             form = CheckBoxChoiceForm(self, self._fields)
-            form.exec()
+            if form.exec() != QDialog.DialogCode.Accepted:
+                return
             to_remove = [field for field, remove in form.get_choices().items() if remove is True]
+            if not to_remove:
+                return
+            confirm = QMessageBox.question(
+                self,
+                'Confirmer',
+                'Retirer les champs sélectionnés des arbres ? Cette action est irréversible sans recharger les données.',
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No,
+            )
+            if confirm != QMessageBox.StandardButton.Yes:
+                return
 
             for field in to_remove:
                 self._fields.remove(field)
@@ -199,6 +243,15 @@ class ProprietyWidget(QWidget):
     def delete_current_line(self):
         """ Retire la ligne sélectionnée, stock sont index, puis émet la donnée """
         if self._editing and self.table.currentRow() != -1:
+            confirm = QMessageBox.question(
+                self,
+                'Confirmer',
+                'Supprimer la ligne sélectionnée ? Cette action est irréversible sans recharger les données.',
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No,
+            )
+            if confirm != QMessageBox.StandardButton.Yes:
+                return
             row = self.table.currentRow()
             self.table.removeRow(row)
             tree_data = self._all_data[row]
