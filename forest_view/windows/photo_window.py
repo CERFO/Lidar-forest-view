@@ -1,5 +1,5 @@
 from PyQt6.QtCore import Qt, QRect, QSize
-from PyQt6.QtGui import QIcon, QPainter, QIcon
+from PyQt6.QtGui import QIcon, QPainter
 from PyQt6.QtWidgets import (
     QApplication,
     QGroupBox,
@@ -99,6 +99,7 @@ class PhotoWindow(QMainWindow):
         self.edit_cb = QCheckBox('Édition', self)
         self.edit_cb.setChecked(False)
         self.edit_cb.toggled.connect(self.propriety_widget.toggle_edition)
+        self.edit_cb.toggled.connect(self._set_edit_toolbar_buttons_enabled)
         self.add_row_btn = QPushButton('Ajouter un arbre', self)
         self.add_row_btn.clicked.connect(self.propriety_widget.add_tree)
         self.remove_row_btn = QPushButton('Effacer la ligne', self)
@@ -109,6 +110,7 @@ class PhotoWindow(QMainWindow):
         self.remove_col_btn.clicked.connect(self.propriety_widget.remove_col)
         self.save_btn = QPushButton('Sauvegarder', self)
         self.save_btn.clicked.connect(self.propriety_widget.on_save)
+        self._set_edit_toolbar_buttons_enabled(False)
 
         top_options = QWidget()
         top_options_layout = QHBoxLayout(top_options)
@@ -234,6 +236,17 @@ class PhotoWindow(QMainWindow):
         self.bottom_panel.setVisible(not visible)
         self._set_table_button_icon_and_text(open_=not visible)
 
+    def _set_edit_toolbar_buttons_enabled(self, enabled: bool):
+        """Boutons d'édition de la table : actifs seulement si Édition est cochée."""
+        for btn in (
+            self.add_row_btn,
+            self.remove_row_btn,
+            self.add_col_btn,
+            self.remove_col_btn,
+            self.save_btn,
+        ):
+            btn.setEnabled(enabled)
+
     def replot_map(self, photo_info, tree_info, crs_epsg):
         """Redessine la carte avec le CRS indiqué (sans toucher au panorama ni aux propriétés)."""
         self.map_widget.set_crs(crs_epsg)
@@ -256,6 +269,7 @@ class PhotoWindow(QMainWindow):
         crs = getattr(self.map_widget, '_crs_epsg', 4326)
         self.replot_map(photo_info, tree_info, crs)
 
+        self.edit_cb.setChecked(False)
         self.propriety_widget.reset()
         self.filter_selected_only_cb.setChecked(False)
         if tree_info is None:
