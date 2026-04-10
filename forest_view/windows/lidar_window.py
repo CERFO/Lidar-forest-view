@@ -3,10 +3,9 @@ import random
 
 import laspy as lp
 import numpy as np
-from pyvista import get_reader
+from pyvista import get_reader, Actor
 import pyvistaqt as pvqt
-from PyQt6.QtCore import QEvent, Qt, pyqtSignal
-from PyQt6.QtGui import QCursor
+from PyQt6.QtCore import QEvent, pyqtSignal
 from PyQt6.QtWidgets import QApplication, QMainWindow
 
 from forest_view.logger import get_logger
@@ -17,9 +16,8 @@ TREE_LABEL_FONT_SIZE = 24
 
 
 class LidarWindow(QMainWindow):
-    camera_parameters = [[0, 0, 0], [1, 0, 0], [0, 0, 1]]
-    translation = None
     lidar_tree_selected = pyqtSignal(object)
+    point_selected = pyqtSignal(object)
 
     def __init__(self):
         super().__init__()
@@ -29,7 +27,6 @@ class LidarWindow(QMainWindow):
         self.plotter = pvqt.QtInteractor(self)
         self.setCentralWidget(self.plotter.interactor)
         self.plotter.interactor.installEventFilter(self)
-        self._lidar_saved_cursor = None
 
         self.plotter.set_viewup([0, 0, 1])
         self.plotter.camera.view_angle = 90
@@ -40,8 +37,25 @@ class LidarWindow(QMainWindow):
         )
         self.plotter.enable_eye_dome_lighting()
         self.plotter.add_on_render_callback(self.on_render)
+        self.camera_parameters = [[0, 0, 0], [1, 0, 0], [0, 0, 1]]
+        self.translation = None
         self.cloud_group = []
         self.qsm_group = []
+        self._tree_positions_centered = None
+        self._tree_labels = None
+        self.point_size = 1.0
+        self.point_size_min = 1.0
+        self.point_size_max = 10.0
+        self.adaptive_point_size = False
+        self.adaptive_max_depth = 5.0
+        self._applied_point_size = None
+        self._aligned_camera_parameters = None
+        self.lock_world_up = True
+        self.point_color = None
+        self.trees_visible = True
+        self._trees_pickable = True
+        self._tree_actors = set()
+        self._selection_actors = set()
 
     def load_point_cloud(self, point_cloud_path, actor_name):
         try:
@@ -51,16 +65,18 @@ class LidarWindow(QMainWindow):
             if self.translation is None:
                 self.translation = np.mean(pcd, axis=0)
             centered_pcd = pcd - self.translation
+            mesh_color = self.point_color if self.point_color is not None else random.choice(color)
             actor = self.plotter.add_mesh(
-                centered_pcd, name=actor_name, style='points', point_size=2,
-                label=actor_name, pickable=False , color=random.choice(color)
+                centered_pcd, name=actor_name, style='points', point_size=self.point_size,
+                label=actor_name, pickable=False, color=mesh_color
             )
             self.cloud_group.append(actor)
+            self._apply_cloud_point_size(self._compute_current_point_size())
         except FileNotFoundError:
             print(f'Le fichier {point_cloud_path} n\'a pas été trouvé')
             logger.info(f'Le fichier {point_cloud_path} n\'a pas été trouvé')
 
-    def add_trees(self, tree_data):
+    def add_all_trees(self, tree_data):
         if tree_data is None:
             return
         tree_pcd = np.vstack((
@@ -74,10 +90,58 @@ class LidarWindow(QMainWindow):
         tree_pcd = tree_pcd - self.translation
         self._tree_positions_centered = np.asarray(tree_pcd)
         self._tree_labels = [str(entry.get('No_tige', '')) for entry in tree_data]
-        self.plotter.add_point_labels(
-            tree_pcd, self._tree_labels, name='arbres', point_size=30, point_color='pink',
-            font_size=TREE_LABEL_FONT_SIZE, always_visible=True, pickable=True
-        )
+        if not self.trees_visible:
+            return
+        self._update_tree_points()
+
+    def add_tree(self, tree_position, tree_label):
+        """ Ajoute un nouvel arbre """
+        tree_position = np.asarray(tree_position)
+        tree_position_centered = tree_position - self.translation
+        self._tree_positions_centered = (np.vstack([self._tree_positions_centered, tree_position_centered]) 
+                                         if self._tree_positions_centered is not None else np.asarray([tree_position_centered]))
+        if self._tree_labels is None:
+            self._tree_labels = []
+        self._tree_labels.append(str(tree_label))
+        if self.trees_visible:
+            self._update_tree_points()
+
+    def _update_tree_points(self):
+        if list(self._tree_positions_centered) and self._tree_labels:
+            pre = set(self.plotter.actors.keys())
+            self.plotter.add_point_labels(
+                self._tree_positions_centered, self._tree_labels, name='arbres', point_size=30, point_color='pink',
+                font_size=TREE_LABEL_FONT_SIZE, always_visible=True, pickable=self._trees_pickable
+            )
+            self._tree_actors.update([key for key in self.plotter.actors.keys() if key not in pre])
+
+    def remove_tree_at(self, tree_position, remove_label:bool = False):
+        """ Retire le point d'arbre à la position fournie """
+        tree_position_centered = tree_position - self.translation
+        for i, tree in enumerate(self._tree_positions_centered):
+            if all(tree == tree_position_centered):
+                self._tree_positions_centered = np.delete(self._tree_positions_centered, i, axis = 0)
+                del self._tree_labels[i]
+                break
+        if not self.trees_visible:
+            return
+        self._update_tree_points()
+
+    def _remove_tree_label_actors(self):
+        if self._tree_actors:
+            for name in list(self._tree_actors):
+                try:
+                    self.plotter.remove_actor(name)
+                except Exception:
+                    pass
+            self._tree_actors = set()
+        if self._selection_actors:
+            for name in list(self._selection_actors):
+                try:
+                    self.plotter.remove_actor(name)
+                except Exception:
+                    pass
+            self._selection_actors = set()
 
     def add_qsm(self, qsm_path, actor_name):
         try:
@@ -99,6 +163,17 @@ class LidarWindow(QMainWindow):
         elif group == 'cloud':
             for item in self.cloud_group:
                 item.visibility = state
+        elif group == 'trees':
+            self.trees_visible = bool(state)
+            if not self.trees_visible:
+                self._remove_tree_label_actors()
+            else:
+                if (
+                    self._tree_positions_centered is not None
+                    and self._tree_labels is not None
+                    and len(self._tree_positions_centered) > 0
+                ):
+                    self._update_tree_points()
         else:
             pass
 
@@ -112,11 +187,14 @@ class LidarWindow(QMainWindow):
             self.camera_parameters[0] = list(centered_position)
             self.plotter.camera_position = self.camera_parameters
             self._update_render_view_depth(self.view_depth)
+            self._save_aligned_camera_parameters()
         else:
             pass
 
     def update_camera_direction(self, camera_direction, yaw=0):
-        if camera_direction[2] == 1:
+        if self.lock_world_up:
+            self.camera_parameters[2] = [0, 0, 1]
+        elif camera_direction[2] == 1:
             self.camera_parameters[2] = [-math.sin(yaw), -math.cos(yaw), 0]
         elif camera_direction[2] == -1:
             self.camera_parameters[2] = [math.sin(yaw), math.cos(yaw), 0]
@@ -124,50 +202,238 @@ class LidarWindow(QMainWindow):
             self.camera_parameters[2] = [0, 0, 1]
         self.camera_parameters[1] = list(np.array(self.camera_parameters[0]) + np.array(camera_direction))
         self.plotter.camera_position = self.camera_parameters
+        if self.lock_world_up:
+            self._enforce_world_up()
         self._update_render_view_depth(self.view_depth)
+        self._save_aligned_camera_parameters()
 
     def _update_render_view_depth(self, view_depth):
         self.view_depth = view_depth
         try:
-            d = self.camera_parameters[1][2] - self.camera_parameters[0][2]
-            z_norm = math.cos(math.atan(d / math.sqrt(d**2 + d**2)))
-        except (ZeroDivisionError, TypeError):
-            z_norm = 0.001
-        self.plotter.camera.clipping_range = (0.5, self.view_depth / (1.1 - abs(z_norm)**3))
+            d = float(self.camera_parameters[1][2] - self.camera_parameters[0][2])
+            denom = math.sqrt(d**2 + d**2)
+            z_norm = math.cos(math.atan(d / denom)) if denom != 0.0 else 0.0
+        except (ZeroDivisionError, TypeError, ValueError):
+            z_norm = 0.0
+        base_far = self.view_depth / (1.1 - abs(z_norm)**3)
+        try:
+            cam_pos = np.asarray(self.camera_parameters[0], dtype=float)
+            focal_pos = np.asarray(self.camera_parameters[1], dtype=float)
+            cam_to_focal = float(np.linalg.norm(focal_pos - cam_pos))
+        except (TypeError, ValueError):
+            cam_to_focal = float(self.view_depth)
+        if not np.isfinite(cam_to_focal):
+            cam_to_focal = float(self.view_depth)
+        far_clip = max(float(base_far), cam_to_focal + (2.0 * float(self.view_depth)), 100.0)
+        self.plotter.camera.clipping_range = (0.5, far_clip)
 
     def on_render(self, plotter):
         self.camera_parameters = [list(bloc) for bloc in self.plotter.camera_position]
         self._update_render_view_depth(self.view_depth)
+        self._apply_cloud_point_size(self._compute_current_point_size())
+
+    def _enforce_world_up(self):
+        try:
+            up = np.asarray(self.plotter.camera.up, dtype=float)
+        except (TypeError, ValueError):
+            up = np.array([0.0, 0.0, 0.0], dtype=float)
+        if np.linalg.norm(up - np.array([0.0, 0.0, 1.0])) > 1e-4:
+            self.plotter.camera.up = (0.0, 0.0, 1.0)
+
+    def set_lock_world_up(self, enabled):
+        self.lock_world_up = bool(enabled)
+        if self.lock_world_up:
+            self._enforce_world_up()
+            self.camera_parameters = [list(bloc) for bloc in self.plotter.camera_position]
+            self._save_aligned_camera_parameters()
+        self.plotter.render()
+
+    def _compute_current_point_size(self):
+        if not self.adaptive_point_size:
+            return float(self.point_size)
+        try:
+            cam_pos = np.asarray(self.camera_parameters[0], dtype=float)
+            focal_pos = np.asarray(self.camera_parameters[1], dtype=float)
+            distance = float(np.linalg.norm(focal_pos - cam_pos))
+        except (TypeError, ValueError):
+            distance = 0.0
+        if not np.isfinite(distance) or distance <= 0.01:
+            distance = 0.0
+
+        max_depth = max(0.01, float(self.adaptive_max_depth))
+        base_size = float(np.clip(self.point_size, self.point_size_min, self.point_size_max))
+        near_size = 10.0
+        if distance <= max_depth:
+            # Courbe plus stable: la taille décroît rapidement près de la caméra,
+            # sans rester "trop bold" quand la profondeur adaptative augmente.
+            t = distance / max_depth
+            scaled = base_size + ((near_size - base_size) * math.exp(-5.0 * t))
+        else:
+            scaled = base_size
+        return float(np.clip(scaled, self.point_size_min, self.point_size_max))
+
+    def _apply_cloud_point_size(self, size):
+        size = float(np.clip(size, self.point_size_min, self.point_size_max))
+        if self._applied_point_size is not None and abs(size - self._applied_point_size) < 0.01:
+            return
+        for actor in self.cloud_group:
+            actor.prop.point_size = size
+        self._applied_point_size = size
+
+    def _save_aligned_camera_parameters(self):
+        self._aligned_camera_parameters = [list(bloc) for bloc in self.plotter.camera_position]
+
+    def set_point_size(self, point_size):
+        self.point_size = float(np.clip(point_size, self.point_size_min, self.point_size_max))
+        self._apply_cloud_point_size(self._compute_current_point_size())
+        self.plotter.render()
+
+    def set_point_color(self, color_rgb):
+        if color_rgb is None:
+            return
+        r, g, b = color_rgb
+        self.point_color = (
+            float(np.clip(r, 0.0, 1.0)),
+            float(np.clip(g, 0.0, 1.0)),
+            float(np.clip(b, 0.0, 1.0)),
+        )
+        for actor in self.cloud_group:
+            actor.prop.color = self.point_color
+        self.plotter.render()
+
+    def get_current_point_color(self):
+        if self.point_color is not None:
+            return self.point_color
+        if self.cloud_group:
+            try:
+                return tuple(self.cloud_group[0].prop.color)
+            except Exception:
+                pass
+        return (1.0, 1.0, 1.0)
+
+    def set_adaptive_point_size(self, enabled):
+        self.adaptive_point_size = bool(enabled)
+        self._apply_cloud_point_size(self._compute_current_point_size())
+        self.plotter.render()
+
+    def set_adaptive_max_depth(self, max_depth):
+        self.adaptive_max_depth = max(1.0, float(max_depth))
+        self._apply_cloud_point_size(self._compute_current_point_size())
+        self.plotter.render()
+
+    def set_forward_view_from_yaw(self, yaw):
+        if len(self.plotter.actors) == 0:
+            return
+        pos = np.asarray(self.camera_parameters[0], dtype=float)
+        direction = np.array([math.sin(yaw), math.cos(yaw), 0.0], dtype=float)
+        if np.linalg.norm(direction) < 1e-9:
+            direction = np.array([1.0, 0.0, 0.0], dtype=float)
+        self.camera_parameters[2] = [0, 0, 1]
+        self.camera_parameters[1] = list(pos + direction)
+        self.plotter.camera_position = self.camera_parameters
+        self._update_render_view_depth(self.view_depth)
+        self._save_aligned_camera_parameters()
+        self.plotter.render()
+
+    def reset_view(self):
+        if len(self.plotter.actors) == 0:
+            return
+        if self._aligned_camera_parameters is not None:
+            self.camera_parameters = [list(bloc) for bloc in self._aligned_camera_parameters]
+            self.plotter.camera_position = self.camera_parameters
+        else:
+            bounds = self.plotter.bounds
+            if bounds is None or len(bounds) != 6:
+                self.camera_parameters = [[0, -30, 10], [0, 0, 0], [0, 0, 1]]
+                self.plotter.camera_position = self.camera_parameters
+            else:
+                xmin, xmax, ymin, ymax, zmin, zmax = [float(v) for v in bounds]
+                cx = (xmin + xmax) / 2.0
+                cy = (ymin + ymax) / 2.0
+                cz = (zmin + zmax) / 2.0
+                dx = max(1.0, xmax - xmin)
+                dy = max(1.0, ymax - ymin)
+                dz = max(1.0, zmax - zmin)
+                radius = 0.5 * math.sqrt(dx * dx + dy * dy + dz * dz)
+                distance = max(20.0, 2.2 * radius)
+                self.camera_parameters = [
+                    [cx, cy - distance, cz + 0.35 * distance],
+                    [cx, cy, cz],
+                    [0, 0, 1],
+                ]
+                self.plotter.camera_position = self.camera_parameters
+        self.plotter.camera.view_angle = 90
+        self.camera_parameters = [list(bloc) for bloc in self.plotter.camera_position]
+        self._update_render_view_depth(self.view_depth)
+        self._applied_point_size = None
+        self._apply_cloud_point_size(self._compute_current_point_size())
+        self.plotter.render()
 
     def eventFilter(self, obj, event):
         if obj is self.plotter.interactor:
-            if event.type() == QEvent.Type.MouseButtonPress:
-                self._lidar_saved_cursor = self.plotter.interactor.cursor()
-                self.plotter.interactor.setCursor(QCursor(Qt.CursorShape.WaitCursor))
-            elif event.type() == QEvent.Type.MouseButtonRelease:
-                cursor = self._lidar_saved_cursor or QCursor(Qt.CursorShape.ArrowCursor)
-                self.plotter.interactor.setCursor(cursor)
+            if event.type() == QEvent.Type.MouseButtonRelease:
+                if self.lock_world_up:
+                    self._enforce_world_up()
+                    self.plotter.render()
         return super().eventFilter(obj, event)
+    
+    def on_pos_request(self, enabled: bool, requestor):
+        if enabled:
+            self.point_selected.connect(requestor)
+            self.plotter.disable_picking()
+            self.plotter.enable_point_picking(
+                callback=self._on_pos_picked, show_message=False, color = 'black',
+                point_size = 25, show_point=True, clear_on_no_selection = False, render_points_as_spheres = True
+            )
+            for actor in self._tree_actors:
+                act = self.plotter.actors.get(actor)
+                if isinstance(act, Actor):
+                    act.pickable = False
+            for actor in self.cloud_group:
+                actor.pickable = True
+                self._trees_pickable = False
+        else:
+            try:
+                self.point_selected.disconnect(requestor)
+            except (TypeError, RuntimeError):
+                pass
+            self.plotter.remove_actor('_picked_point') # Pourrait être problématique : garder en tête
+            self.plotter.disable_picking()
+            self.plotter.enable_point_picking(
+                callback=self.on_lidar_selected_tree, show_point=False, show_message=False
+            )
+            for actor in self._tree_actors:
+                act = self.plotter.actors.get(actor)
+                if isinstance(act, Actor):
+                    act.pickable = True
+            for actor in self.cloud_group:
+                actor.pickable = False
+                self._trees_pickable = True
+
+    def _on_pos_picked(self, point):
+        point = np.asarray(point)
+        point = point + self.translation
+        self.point_selected.emit(point)
 
     def on_lidar_selected_tree(self, picked_point):
-        if 'selected_point' in self.plotter.actors.keys():
-            self.plotter.remove_actor('selected_point')
+        if not self.trees_visible:
+            return
         picked_centered = np.asarray(picked_point)
-        self.plotter.add_mesh(picked_centered, name='selected_point', point_size=30, color='yellow')
         self._highlight_selected_label(picked_centered)
         picked_point = np.array(picked_point) + self.translation
         self.lidar_tree_selected.emit(picked_point)
         
     def on_map_selected_tree(self, tree_position):
-        if 'selected_point' in self.plotter.actors.keys():
-            self.plotter.remove_actor('selected_point')
+        if not self.trees_visible:
+            return
         tree_position = np.asarray(tree_position, dtype=float)
         tree_position_centered = tree_position - self.translation
-        self.plotter.add_mesh(tree_position_centered, name='selected_point', point_size=30, color='yellow')
         self._highlight_selected_label(tree_position_centered)
 
     def _highlight_selected_label(self, position_centered):
         """Affiche le libellé (No_tige) de l'arbre sélectionné en surbrillance dans le nuage de points."""
+        if not self.trees_visible:
+            return
         if not hasattr(self, '_tree_positions_centered') or self._tree_positions_centered is None:
             return
         if not hasattr(self, '_tree_labels') or not self._tree_labels:
@@ -176,24 +442,25 @@ class LidarWindow(QMainWindow):
         dists = np.linalg.norm(self._tree_positions_centered - pos, axis=1)
         idx = int(np.argmin(dists))
         label = self._tree_labels[idx]
-        if 'selected_label' in self.plotter.actors.keys():
-            self.plotter.remove_actor('selected_label')
+        pre = set(self.plotter.actors.keys())
         self.plotter.add_point_labels(
             self._tree_positions_centered[idx : idx + 1],
             [label],
             name='selected_label',
-            point_size=0,
+            point_size=30,
+            point_color = 'yellow',
             font_size=TREE_LABEL_FONT_SIZE,
             text_color='yellow',
             bold=True,
             always_visible=True,
         )
+        self._selection_actors.update([key for key in self.plotter.actors.keys() if key not in pre])
 
     def change_site(self, cloud_path, tree_info):
         self.reset()
         self.load_point_cloud(cloud_path, 'main_cloud')
         if tree_info is not None:
-            self.add_trees(tree_info)
+            self.add_all_trees(tree_info)
 
     def reset(self):
         self.plotter.clear_actors()
@@ -201,9 +468,14 @@ class LidarWindow(QMainWindow):
         self.plotter.camera_position = self.camera_parameters
         self.cloud_group = []
         self.qsm_group = []
+        self._applied_point_size = None
+        self._aligned_camera_parameters = None
+        self.trees_visible = True
         self.translation = None
         self._tree_positions_centered = None
         self._tree_labels = None
+        self._tree_actors = set()
+        self._selection_actors = set()
 
     def closeEvent(self, event):
         self.plotter.close()

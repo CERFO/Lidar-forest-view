@@ -207,7 +207,23 @@ Les deux scripts se placent automatiquement dans le répertoire du dépôt (là 
 - Glisser avec le bouton gauche pour faire tourner le nuage.
 - Molette centrale pour déplacer la position d'observation ; molette pour le zoom.
 - Clic droit sur un point d'arbre : affichage des données ; le point devient jaune dans le lidar et sur la carte.
-- **Couches** : menu **Lidar** sélectionner les couches (qsm et/ou nuages) visibles avec les boîtes de sélection
+- **Couches** : menu **Lidar** sélectionner les couches (qsm et/ou nuages) visibles avec les boîtes de sélection.
+- **Taille des points** : menu **Lidar** > **Taille des points** pour ajuster l'épaisseur de rendu des nuages.
+- **Taille adaptative (caméra)** : réduit/augmente automatiquement la taille apparente des points selon la distance caméra-focale, utile pour limiter l'effet "voir à travers" près de la trajectoire.
+- **Interaction taille + adaptatif** : la taille manuelle devient la base, puis l'adaptatif la module selon la distance caméra/focale.
+- **Réinitialiser la vue** : revient au point de vue lidar aligné avec la photo active, puis réapplique les réglages d'affichage (taille/couleur/verrouillage up).
+- **Lock world up** : garde l'axe vertical (ciel en haut) stable ; peut être désactivé pour autoriser un roulis libre.
+- **Couleur des points** : applique une couleur globale aux nuages déjà chargés et à ceux chargés ensuite.
+
+### Édition de données
+
+- Dans le haut de la section de la table d'attributs, cocher la case édition pour entrer en mode édition
+- Double-cliquer sur une case pour la modifier
+- Le bouton « Effacer la ligne » retire la ligne active
+- Le bouton « Ajouter un champ » fera apparaître un formulaire qui permettra de choisir le nom du champ à ajouter. Une fois le formulaire soumis, ce champ s'ajoutera à la table
+- Le bouton « Retirer un champ » fera apparaître un formulaire qui permettra de retirer un ou plusieurs champs de la table
+- Le bouton « Ajouter un arbre permet d'ajouter une tige via un formulaire. Il est important de sélectionner un emplacement pour l'arbre en question en faisant un clic droit sur le nuage de points, une sphère noir apparaitra au lieu choisi. Le numéro de tige est autoincrémenté, mais il est possible de le modifier au besoin
+- Vous pouvez sauvegarder les modifications apportées avec le bouton « Sauvegarder »
 
 ### Vérouillage à l'arbre
 

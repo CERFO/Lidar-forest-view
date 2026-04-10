@@ -5,6 +5,7 @@ from pathlib import Path
 from PyQt6.QtCore import Qt, QEvent, QStandardPaths
 from PyQt6.QtGui import QFont, QCursor
 from PyQt6.QtWidgets import (
+    QCheckBox,
     QDialog,
     QFileDialog,
     QFormLayout,
@@ -14,6 +15,7 @@ from PyQt6.QtWidgets import (
     QMessageBox,
     QPushButton,
     QToolTip,
+    QVBoxLayout,
     QWidget,
 )
 
@@ -159,3 +161,88 @@ class DataForm(QDialog):
                 sys.exit()
             else:
                 event.ignore()
+
+class NewTreeForm(QDialog):
+    def __init__(self, parent, fields, tree_number):
+        super().__init__(parent)
+
+        self.tree_location = [None, None, None]
+        self.tree_data = dict.fromkeys(fields if len(fields) != 0 else ['No_tige'], '')
+        self.tree_data.update({'No_tige': int(tree_number)})
+        self.submitted = False
+
+        self.setWindowTitle('Nouvel arbre')
+        self.setWindowFlags(
+            self.windowFlags()
+            | Qt.WindowType.WindowStaysOnTopHint
+            | Qt.WindowType.Dialog
+            | Qt.WindowType.WindowCloseButtonHint
+        )
+
+        if hasattr(self.parent(), 'new_tree_pos_requested'):
+            self.parent().new_tree_pos_requested.emit(True, self.set_tree_location)
+
+        layout = QFormLayout(self)
+        for field, value in self.tree_data.items():
+            line_edit = QLineEdit(str(value) if value is not None else '', self)
+            line_edit.textChanged.connect(
+                lambda text, f=field: self.tree_data.update({f:text})
+            )
+            layout.addRow(field, line_edit)
+        submit_button = QPushButton("Soumettre")
+        submit_button.clicked.connect(self.submit_data)
+        layout.addRow(submit_button)
+
+    def set_tree_location(self, location):
+        self.tree_location = location
+
+    def submit_data(self):
+        if all(coord is not None for coord in self.tree_location) and self.tree_data.get('No_tige') != '':
+            if hasattr(self.parent(), 'new_tree_pos_requested'):
+                self.parent().new_tree_pos_requested.emit(False, self.set_tree_location)
+            self.submitted = True
+            self.accept()
+        else:
+            QMessageBox.information(self, 'Incomplet', 'Un arbre doit minimalement avoir une position et un numéro')
+
+    def get_data(self):
+        if self.submitted:
+            data = {k:v for k, v in zip(['x','y','z'],self.tree_location)}
+            data.update(self.tree_data)
+            return data
+        else:
+            return None
+        
+    def closeEvent(self, event):
+        if hasattr(self.parent(), 'new_tree_pos_requested') and not self.submitted:
+            self.parent().new_tree_pos_requested.emit(False, self.set_tree_location)
+        return super().closeEvent(event)
+    
+class CheckBoxChoiceForm(QDialog):
+    def __init__(self, parent, choices):
+        super().__init__(parent)
+
+        self.setWindowTitle('Champs à retirer')
+        self.setWindowFlags(
+            self.windowFlags()
+            | Qt.WindowType.WindowStaysOnTopHint
+            | Qt.WindowType.Dialog
+            | Qt.WindowType.WindowCloseButtonHint
+        )
+
+        self.choice_dict = dict.fromkeys(choices, False)
+        layout = QVBoxLayout(self)
+        for choice in choices:
+            cb = QCheckBox(choice, self)
+            cb.setChecked(False)
+            cb.clicked.connect(lambda state, c=choice: self.choice_dict.update({c:state}))
+            layout.addWidget(cb)
+        submit_button = QPushButton("Soumettre")
+        submit_button.clicked.connect(self.submit_choice)
+        layout.addWidget(submit_button)
+
+    def submit_choice(self):
+        self.accept()
+
+    def get_choices(self):
+        return self.choice_dict

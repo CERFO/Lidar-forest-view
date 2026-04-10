@@ -23,6 +23,8 @@ OSM_USER_AGENT = "UdeSForestView/1.0"
 logger = get_logger(__name__)
 
 BASEMAP_OSM = "osm"
+# Tolérance (coordonnées scène) pour associer un clic LiDAR à un point carte après transformations flottantes.
+_SCENE_POS_TOL = 1e-5
 BASEMAP_PROVIDERS = {
     BASEMAP_OSM: {
         "label": "OpenStreetMap",
@@ -94,6 +96,7 @@ class CustomMapWidget(QGraphicsView):
     new_panorama = pyqtSignal(str, float, float, float)
     new_tree_attributes = pyqtSignal(object)
     map_tree_selected = pyqtSignal(object)
+    map_tree_deleted = pyqtSignal(object)
 
     def __init__(self, photo_coordinates, tree_coordinates=None, crs_epsg=4326, basemap_id=None):
         super().__init__()
@@ -162,7 +165,7 @@ class CustomMapWidget(QGraphicsView):
             )
             self.scene.addItem(point)
 
-    def plot_tree_coordinates(self, tree_coordinates):
+    def plot_tree_coordinates(self, tree_coordinates, row_idx = None):
         """Affiche les points d'arbres. Reprojection à la volée : crs_epsg → WGS84 (4326) pour la scène et OSM."""
         if not tree_coordinates:
             return
@@ -175,7 +178,7 @@ class CustomMapWidget(QGraphicsView):
             tree_data = {k: v for k, v in entry.items() if k not in {'x', 'y', 'z'}}
             point = TreePoint(
                 scene_x, scene_y, scene_z, tree_data, self, 10,
-                data_x=x_data, data_y=y_data, row_index=row_index
+                data_x=x_data, data_y=y_data, row_index=row_index if row_idx is None else row_idx[row_index]
             )
             self.scene.addItem(point)
 
@@ -290,6 +293,17 @@ class CustomMapWidget(QGraphicsView):
             self.scene.addItem(self.pointer)
             self.new_pointer_position.connect(self.pointer.setPos)
 
+    def set_layer_visibility(self, layer, state):
+        state = bool(state)
+        if layer == 'photos':
+            for item in self.scene.items():
+                if isinstance(item, PhotoPoint):
+                    item.setVisible(state)
+        elif layer == 'trees':
+            for item in self.scene.items():
+                if isinstance(item, TreePoint):
+                    item.setVisible(state)
+
     def _create_osm_attribution(self):
         """Crée le label d'attribution du fond de carte en bas à gauche."""
         self._osm_attribution_label = QLabel(self)
@@ -358,23 +372,22 @@ class CustomMapWidget(QGraphicsView):
             for item in self.last_selection:
                 item.setSelected(True)
 
-    def find_point(self, position):
+    def find_tree_by_location(self, location):
         """Reçoit une position en CRS des données (ex. MTM). Transforme en scène (WGS84) pour retrouver le point."""
-        x_data, y_data = position[0], position[1]
+        x_data, y_data = location[0], location[1]
         lon, lat = data_to_wgs84(x_data, y_data, self._crs_epsg)
         scene_x, scene_y = lon, -lat
         items = self.scene.items(QPointF(scene_x, scene_y))
         for item in items:
             if isinstance(item, TreePoint):
-                if item.pos() == QPointF(scene_x, scene_y):
-                    self.last_selection = []
-                    self.scene.clearSelection()
-                    item.setSelected(True)
-                    self.new_tree_attributes.emit(item.tree_data)
-                    break
+                p = item.pos()
+                if math.isclose(p.x(), scene_x, abs_tol=_SCENE_POS_TOL, rel_tol=0.0) and math.isclose(
+                    p.y(), scene_y, abs_tol=_SCENE_POS_TOL, rel_tol=0.0
+                ):
+                    return item
 
-    def highlight_tree_by_data(self, payload):
-        """Sélectionne sur la carte le point d'arbre correspondant à la ligne table (sans déplacer la vue).
+    def find_tree_by_data(self, payload):
+        """ Trouve un point d'arbre grâce à sa donnée.
         payload = (row_index, tree_data) depuis la table, ou tree_data seul depuis la carte."""
         row_index = None
         if isinstance(payload, (list, tuple)) and len(payload) == 2:
@@ -396,11 +409,63 @@ class CustomMapWidget(QGraphicsView):
                 if isinstance(it, TreePoint) and _tree_data_match(it.tree_data, tree_data):
                     item = it
                     break
-        if item is not None:
-            item.setSelected(True)
-            if item.data_x is not None and item.data_y is not None:
-                tree_position = np.array([item.data_x, item.data_y, item.z])
+        return item
+    
+    def highlight_tree_by_location(self, location):
+        """ Sélectionne sur la carte le point d'arbre à la localisation donnée
+        location = np.array(x, y, z)"""
+        tree = self.find_tree_by_location(location)
+        if tree is not None:
+            self.last_selection = []
+            self.scene.clearSelection()
+            tree.setSelected(True)
+            self.new_tree_attributes.emit(tree.tree_data)
+
+    def highlight_tree_by_data(self, payload):
+        """Sélectionne sur la carte le point d'arbre correspondant à la ligne table (sans déplacer la vue).
+        payload = (row_index, tree_data) depuis la table, ou tree_data seul depuis la carte."""
+        tree = self.find_tree_by_data(payload)
+        if tree is not None:
+            tree.setSelected(True)
+            if tree.data_x is not None and tree.data_y is not None:
+                tree_position = np.array([tree.data_x, tree.data_y, tree.z])
             else:
-                px, py = item.pos().x(), item.pos().y()
-                tree_position = np.array([px, -py, item.z])
+                px, py = tree.pos().x(), tree.pos().y()
+                tree_position = np.array([px, -py, tree.z])
             self.map_tree_selected.emit(tree_position)
+
+    def update_tree_data(self, payload):
+        """ Trouve puis met à lour la donnée d'un point d'arbre
+        payload = (row_index, tree_data) ou tree_data"""
+        tree = self.find_tree_by_data(payload)
+        if tree is not None:
+            tree.tree_data.update(payload[1] if isinstance(payload, (list, tuple)) and len(payload) == 2 else payload)
+
+    def remove_tree(self, payload):
+        """ Retire un point d'arbre de l'affichage
+        payload = (row_index, tree_data) ou tree_data"""
+        tree = self.find_tree_by_data(payload)
+        if tree is not None:
+            if tree.data_x is not None and tree.data_y is not None:
+                tree_position = np.array([tree.data_x, tree.data_y, tree.z])
+            else:
+                px, py = tree.pos().x(), tree.pos().y()
+                tree_position = np.array([px, -py, tree.z])
+            self.map_tree_deleted.emit(tree_position)
+            
+            self.scene.removeItem(tree)
+            removed_row = None
+            if isinstance(payload, (list, tuple)) and len(payload) >= 1:
+                removed_row = payload[0]
+            if isinstance(removed_row, int):
+                for item in self.scene.items():
+                    if not isinstance(item, TreePoint):
+                        continue
+                    ri = getattr(item, 'row_index', None)
+                    if ri is not None and ri >= removed_row:
+                        item.row_index -= 1
+
+    def remove_tree_field(self, field):
+        for item in self.scene.items():
+            if isinstance(item, TreePoint):
+                item.tree_data.pop(field, None)

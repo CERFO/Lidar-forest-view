@@ -5,7 +5,7 @@ from PyQt6.QtCore import QObject, QTimer
 from PyQt6.QtWidgets import QApplication, QDialog, QMessageBox, QVBoxLayout, QWidget
 
 from forest_view.forms import DataForm
-from forest_view.io import CSV_to_dict
+from forest_view.io import CSV_to_dict, writeCSV
 from forest_view.logger import get_logger
 from forest_view.widgets import show_overlay
 from forest_view.widgets.map import BASEMAP_OSM
@@ -94,11 +94,35 @@ class AppManager(QObject):
         self.photo_window.map_widget.new_tree_attributes.connect(
             self.photo_window.propriety_widget.select_row_for_tree
         )
+        self.photo_window.map_widget.map_tree_deleted.connect(
+            self.lidar_window.remove_tree_at
+        )
+        self.photo_window.propriety_widget.saved_data.connect(
+            self.update_tree_info
+        )
         self.photo_window.propriety_widget.tree_row_selected.connect(
             self.photo_window.map_widget.highlight_tree_by_data
         )
+        self.photo_window.propriety_widget.tree_data_changed.connect(
+            self.photo_window.map_widget.update_tree_data
+        )
+        self.photo_window.propriety_widget.row_removed.connect(
+            self.photo_window.map_widget.remove_tree
+        )
+        self.photo_window.propriety_widget.new_tree_pos_requested.connect(
+            self.lidar_window.on_pos_request
+        )
+        self.photo_window.propriety_widget.new_tree.connect(
+            self.photo_window.map_widget.plot_tree_coordinates
+        )
+        self.photo_window.propriety_widget.new_tree_position.connect(
+            self.lidar_window.add_tree
+        )
+        self.photo_window.propriety_widget.col_removed.connect(
+            self.photo_window.map_widget.remove_tree_field
+        )
         self.lidar_window.lidar_tree_selected.connect(
-            self.photo_window.map_widget.find_point
+            self.photo_window.map_widget.highlight_tree_by_location
         )
         self.lidar_window.lidar_tree_selected.connect(
             self.photo_window.gl_widget.on_tree_selection
@@ -143,7 +167,7 @@ class AppManager(QObject):
 
                 QApplication.processEvents()
                 if tree_info and len(tree_info) > 0:
-                    self.lidar_window.add_trees(tree_info)
+                    self.lidar_window.add_all_trees(tree_info)
                 if photo_info and len(photo_info) > 0:
                     p = photo_info[0]
                     x, y, z = float(p['x']), float(p['y']), float(p['z'])
@@ -157,6 +181,7 @@ class AppManager(QObject):
                     self.photo_window.map_widget.pointer.rotate_pointer(yaw)
                     self.lidar_window.update_camera_position(np.array([x, y, z]))
                     self.photo_window.gl_widget.on_photo_selection(np.array([x, y, z]))
+                    self.lidar_window.set_forward_view_from_yaw(yaw)
                     QApplication.processEvents()
             finally:
                 overlay.dismiss()
@@ -199,7 +224,7 @@ class AppManager(QObject):
             self._unified_window.on_change_site_requested = self.change_site
             self._unified_window.on_crs_changed = self.set_map_crs
             self._unified_window.on_basemap_changed = self.set_map_basemap
-            self._unified_window.on_lidar_vis_change = self.set_lidar_visibility
+            self._bind_unified_lidar_controls()
             self._unified_window._cleanup_before_quit = self._release_vtk_before_quit
         lidar_w = self.lidar_window.centralWidget()
         photo_content = self.photo_window.centralWidget()
@@ -209,10 +234,35 @@ class AppManager(QObject):
         self.photo_window.setCentralWidget(QWidget())
         self.lidar_window.hide()
         self.photo_window.hide()
+        trees_count = len(self.tree_info) if self.tree_info else 0
+        photos_count = len(self.photo_info) if self.photo_info else 0
+        self._unified_window.set_vector_counts(trees_count, photos_count)
+        self._unified_window.set_current_point_color(self.lidar_window.get_current_point_color())
         self._unified_window.set_basemap_checked(self._map_basemap)
         self._unified_window.show()
         self._unified_window.raise_()
         self._unified_window.activateWindow()
+
+    def _bind_unified_lidar_controls(self):
+        """
+        Relie les contrôles du menu Lidar à la vue 3D.
+
+        Comportement attendu des options :
+        - Taille des points : taille de base utilisée par les nuages.
+        - Taille adaptative : ajuste cette taille de base selon la distance caméra/focale.
+        - Profondeur adaptative : distance des premiers mètres où la taille passe de 10 à la taille de base.
+        - Réinitialiser la vue : revient au point de vue aligné sur la photo courante.
+        - Lock world up : contraint le haut de la caméra sur +Z (horizon stable).
+        - Couleur des points : applique la couleur aux nuages existants et futurs.
+        """
+        self._unified_window.on_lidar_vis_change = self.set_lidar_visibility
+        self._unified_window.on_lidar_point_size_change = self.set_lidar_point_size
+        self._unified_window.on_lidar_adaptive_point_size_change = self.set_lidar_adaptive_point_size
+        self._unified_window.on_lidar_adaptive_max_depth_change = self.set_lidar_adaptive_max_depth
+        self._unified_window.on_lidar_reset_view_requested = self.reset_lidar_view
+        self._unified_window.on_lidar_lock_world_up_change = self.set_lidar_lock_world_up
+        self._unified_window.on_lidar_point_color_change = self.set_lidar_point_color
+        self._unified_window.on_vector_visibility_change = self.set_vector_visibility
 
     def set_map_crs(self, epsg: int):
         """Change le CRS de la carte et redessine avec les mêmes données."""
@@ -235,6 +285,41 @@ class AppManager(QObject):
 
     def set_lidar_visibility(self, group, state):
         self.lidar_window.set_visibility(group, state)
+
+    def set_lidar_point_size(self, size):
+        self.lidar_window.set_point_size(size)
+
+    def set_lidar_adaptive_point_size(self, state):
+        self.lidar_window.set_adaptive_point_size(state)
+
+    def set_lidar_adaptive_max_depth(self, max_depth):
+        self.lidar_window.set_adaptive_max_depth(max_depth)
+
+    def reset_lidar_view(self):
+        self.lidar_window.reset_view()
+
+    def set_lidar_lock_world_up(self, state):
+        self.lidar_window.set_lock_world_up(state)
+
+    def set_lidar_point_color(self, color_rgb):
+        self.lidar_window.set_point_color(color_rgb)
+        if self._unified_window is not None:
+            self._unified_window.set_current_point_color(color_rgb)
+
+    def set_vector_visibility(self, layer, state):
+        if layer == 'trees':
+            self.lidar_window.set_visibility('trees', state)
+        self.photo_window.map_widget.set_layer_visibility(layer, state)
+
+    def update_tree_info(self, list_of_dicts):
+        self.tree_info = list_of_dicts
+        header = None
+        if not list_of_dicts:
+            header = self.photo_window.propriety_widget.get_field_names()
+        writeCSV(self.project_dir / 'tree_info.csv', self.tree_info, header=header)
+        if self._unified_window is not None:
+            photos_count = len(self.photo_info) if self.photo_info else 0
+            self._unified_window.set_vector_counts(len(self.tree_info), photos_count)
 
     def change_site(self):
         """Demande confirmation, ferme les fenêtres de navigation et retourne au choix du projet."""
