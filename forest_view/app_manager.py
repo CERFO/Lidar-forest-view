@@ -163,7 +163,7 @@ class AppManager(QObject):
                         continue
 
                     if i % 30 == 0:
-                                QApplication.processEvents()
+                        QApplication.processEvents()
 
                 QApplication.processEvents()
                 if tree_info and len(tree_info) > 0:
