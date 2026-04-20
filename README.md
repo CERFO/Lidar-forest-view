@@ -208,6 +208,7 @@ Les deux scripts se placent automatiquement dans le répertoire du dépôt (là 
 - Molette centrale pour déplacer la position d'observation ; molette pour le zoom.
 - Clic droit sur un point d'arbre : affichage des données ; le point devient jaune dans le lidar et sur la carte.
 - **Couches** : menu **Lidar** sélectionner les couches (qsm et/ou nuages) visibles avec les boîtes de sélection.
+- **Profondeur de vue** : menu **Lidar** > **Profondeur de vue** pour ajuster la distance maximale de la caméra pour l'affichage des points.
 - **Taille des points** : menu **Lidar** > **Taille des points** pour ajuster l'épaisseur de rendu des nuages.
 - **Taille adaptative (caméra)** : réduit/augmente automatiquement la taille apparente des points selon la distance caméra-focale, utile pour limiter l'effet "voir à travers" près de la trajectoire.
 - **Interaction taille + adaptatif** : la taille manuelle devient la base, puis l'adaptatif la module selon la distance caméra/focale.
