@@ -126,6 +126,7 @@ class UnifiedWindow(QMainWindow):
         self.on_lidar_lock_world_up_change = None
         self.on_lidar_point_color_change = None
         self.on_vector_visibility_change = None
+        self.on_view_depth_change = None
         self._current_point_color = (1.0, 1.0, 1.0)
         self._lidar_widget = None
         self._lidar_layers_panel = None
@@ -187,6 +188,24 @@ class UnifiedWindow(QMainWindow):
         self._action_point_color.triggered.connect(self._on_point_color_picker)
         menu_lidar.addAction(self._action_point_color)
         menu_lidar.addSeparator()
+        view_depth_row = QWidget()
+        view_depth_layout = QHBoxLayout(view_depth_row)
+        view_depth_layout.setContentsMargins(6, 2, 6, 2)
+        view_depth_layout.setSpacing(6)
+        view_depth_layout.addWidget(QLabel('Profondeur de vue', self))
+        view_depth_spin = QDoubleSpinBox(self)
+        view_depth_spin.setRange(1.0, 100.0)
+        view_depth_spin.setDecimals(1)
+        view_depth_spin.setSingleStep(1)
+        view_depth_spin.setValue(15)
+        view_depth_spin.setToolTip(
+            'Ajuste la profondeur de vue du visualisateur 3D'
+        )
+        view_depth_spin.valueChanged.connect(self._on_view_depth_change)
+        view_depth_layout.addWidget(view_depth_spin)
+        view_depth_act = QWidgetAction(self)
+        view_depth_act.setDefaultWidget(view_depth_row)
+        menu_lidar.addAction(view_depth_act)
         point_size_row = QWidget(self)
         point_size_layout = QHBoxLayout(point_size_row)
         point_size_layout.setContentsMargins(6, 2, 6, 2)
@@ -499,6 +518,10 @@ class UnifiedWindow(QMainWindow):
         self._current_point_color = (color.redF(), color.greenF(), color.blueF())
         if callable(self.on_lidar_point_color_change):
             self.on_lidar_point_color_change(self._current_point_color)
+
+    def _on_view_depth_change(self, view_depth):
+        if callable(self.on_view_depth_change):
+            self.on_view_depth_change(view_depth)
 
     def _show_lidar_settings_help(self):
         QMessageBox.information(

@@ -186,7 +186,7 @@ class LidarWindow(QMainWindow):
             )
             self.camera_parameters[0] = list(centered_position)
             self.plotter.camera_position = self.camera_parameters
-            self._update_render_view_depth(self.view_depth)
+            self.update_render_view_depth(self.view_depth)
             self._save_aligned_camera_parameters()
         else:
             pass
@@ -204,18 +204,18 @@ class LidarWindow(QMainWindow):
         self.plotter.camera_position = self.camera_parameters
         if self.lock_world_up:
             self._enforce_world_up()
-        self._update_render_view_depth(self.view_depth)
+        self.update_render_view_depth(self.view_depth)
         self._save_aligned_camera_parameters()
 
-    def _update_render_view_depth(self, view_depth):
+    def update_render_view_depth(self, view_depth):
         self.view_depth = view_depth
         try:
-            d = float(self.camera_parameters[1][2] - self.camera_parameters[0][2])
-            denom = math.sqrt(d**2 + d**2)
-            z_norm = math.cos(math.atan(d / denom)) if denom != 0.0 else 0.0
+            d = np.asarray(self.camera_parameters[1]) - np.asarray(self.camera_parameters[0])
+            denom = np.linalg.norm(d)
+            z_norm = math.sin(d[2] / denom) if denom != 0.0 else 0.0
         except (ZeroDivisionError, TypeError, ValueError):
             z_norm = 0.0
-        base_far = self.view_depth / (1.1 - abs(z_norm)**3)
+        base_far = self.view_depth / (1.1 - abs(z_norm)**2)
         try:
             cam_pos = np.asarray(self.camera_parameters[0], dtype=float)
             focal_pos = np.asarray(self.camera_parameters[1], dtype=float)
@@ -224,12 +224,12 @@ class LidarWindow(QMainWindow):
             cam_to_focal = float(self.view_depth)
         if not np.isfinite(cam_to_focal):
             cam_to_focal = float(self.view_depth)
-        far_clip = max(float(base_far), cam_to_focal + (2.0 * float(self.view_depth)), 100.0)
+        far_clip = max(float(base_far), cam_to_focal + (float(self.view_depth)), 0.6)
         self.plotter.camera.clipping_range = (0.5, far_clip)
 
     def on_render(self, plotter):
         self.camera_parameters = [list(bloc) for bloc in self.plotter.camera_position]
-        self._update_render_view_depth(self.view_depth)
+        self.update_render_view_depth(self.view_depth)
         self._apply_cloud_point_size(self._compute_current_point_size())
 
     def _enforce_world_up(self):
@@ -331,7 +331,7 @@ class LidarWindow(QMainWindow):
         self.camera_parameters[2] = [0, 0, 1]
         self.camera_parameters[1] = list(pos + direction)
         self.plotter.camera_position = self.camera_parameters
-        self._update_render_view_depth(self.view_depth)
+        self.update_render_view_depth(self.view_depth)
         self._save_aligned_camera_parameters()
         self.plotter.render()
 
@@ -364,7 +364,7 @@ class LidarWindow(QMainWindow):
                 self.plotter.camera_position = self.camera_parameters
         self.plotter.camera.view_angle = 90
         self.camera_parameters = [list(bloc) for bloc in self.plotter.camera_position]
-        self._update_render_view_depth(self.view_depth)
+        self.update_render_view_depth(self.view_depth)
         self._applied_point_size = None
         self._apply_cloud_point_size(self._compute_current_point_size())
         self.plotter.render()

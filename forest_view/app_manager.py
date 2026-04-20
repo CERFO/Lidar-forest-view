@@ -263,6 +263,7 @@ class AppManager(QObject):
         self._unified_window.on_lidar_lock_world_up_change = self.set_lidar_lock_world_up
         self._unified_window.on_lidar_point_color_change = self.set_lidar_point_color
         self._unified_window.on_vector_visibility_change = self.set_vector_visibility
+        self._unified_window.on_view_depth_change = self.set_view_depth
 
     def set_map_crs(self, epsg: int):
         """Change le CRS de la carte et redessine avec les mêmes données."""
@@ -310,6 +311,9 @@ class AppManager(QObject):
         if layer == 'trees':
             self.lidar_window.set_visibility('trees', state)
         self.photo_window.map_widget.set_layer_visibility(layer, state)
+
+    def set_view_depth(self, view_depth):
+        self.lidar_window.update_render_view_depth(view_depth)
 
     def update_tree_info(self, list_of_dicts):
         self.tree_info = list_of_dicts
