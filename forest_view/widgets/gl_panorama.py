@@ -16,7 +16,6 @@ from OpenGL.GL import (
     GL_TEXTURE_MIN_FILTER,
     GL_TRIANGLES,
     GL_UNSIGNED_BYTE,
-    GL_VERTEX_ARRAY,
     glBindBuffer,
     glBindTexture,
     glBindVertexArray,

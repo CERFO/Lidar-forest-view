@@ -12,6 +12,7 @@ Utilitaire de visualisation simultanée de données lidar, photo et cartographiq
 - [Lancement](#lancement)
 - [Guide d'utilisateur](#guide-dutilisateur)
 - [Création de projets](#création-de-projets)
+- [Référentiels spatiaux](#référentiels-spatiaux)
 
 ---
 
@@ -25,8 +26,7 @@ Utilitaire de visualisation simultanée de données lidar, photo et cartographiq
 | **`photo_info.csv`** | Dans le projet | CSV : `image`, `x`, `y`, `z` ; optionnel `yaw`, `pitch`, `roll`. Les colonnes `x`, `y` sont interprétées dans le CRS choisi (voir [CRS et carte](#système-de-coordonnées-crs-et-carte)). |
 | **`tree_info.csv`** | Dans le projet | CSV : `x`, `y`, `z`, `No_tige` + autres colonnes (propriétés). `x`, `y` dans le même CRS que la carte. |
 | **`panoramas/`** | Dans le projet | Dossier d'images ; noms = colonne `image` de `photo_info.csv` (ex. `pano0001.jpg`). |
-| **`cloud.laz`** | Dans le projet | Nuage lidar principal. Sinon : vue 3D vide. |
-| **`aero_cloud.laz`** | Dans le projet | Second nuage (ex. aéroporté). |
+| **`*.laz`** ou **`*.las`** | Dans le projet | Nuages lidar. Sinon : vue 3D vide. |
 | **`qsm/`** |Dans le projet | Dossier des fichiers .obj des qsm (ex. `tree_1.obj`) |
 | **`appsettings.json`** | Répertoire courant | Pré-remplit le dernier répertoire projet ; mis à jour à chaque soumission. |
 
@@ -37,7 +37,6 @@ Utilitaire de visualisation simultanée de données lidar, photo et cartographiq
 ├── photo_info.csv      (colonnes : image, x, y, z, optionnel yaw, pitch, roll)
 ├── tree_info.csv       (colonnes : x, y, z, No_tige, + autres)
 ├── cloud.laz
-├── aero_cloud.laz
 ├── panoramas/
     ├── pano0000.jpg
     ├── pano0001.jpg
@@ -52,12 +51,12 @@ Utilitaire de visualisation simultanée de données lidar, photo et cartographiq
 
 | Outil | Rôle |
 |-------|------|
-| **`project_maker.py`** | Crée le projet + `panoramas/` + `photo_info.csv` + nage de points à partir de GS-vision, Insta 360, Eagle ou Hémisphérique. |
+| **`project_maker.py`** | Crée le projet + `panoramas/` + `photo_info.csv` + nuage de points principal à partir de GS-vision, Insta 360, Eagle ou Hémisphérique. |
 | **`scripts/Trait_photo_v6.py`** | Flux Hémisphérique seul. Script autonome. |
 | **`scripts/trait_insta360.py`** | Flux Insta 360 seul. Script autonome. |
 | **`scripts/convert_gs_vision_v2.py`** | Conversion GS-Vision vers structure projet. Script autonome. |
 
-Voir [scripts/README.md](scripts/README.md) pour l'usage des scripts. Ils ne génèrent pas `tree_info.csv` ni `aero_cloud.laz` ; à ajouter séparément pour la visualisation complète.
+Voir [scripts/README.md](scripts/README.md) pour l'usage des scripts. Ils ne génèrent pas `tree_info.csv` ni l'ajout d'autres nuages ; à ajouter séparément pour la visualisation complète `tree_info.csv` peut être créé en mode édition (voir [Édition de données](#édition-de-données))
 
 ---
 
@@ -117,7 +116,7 @@ Le projet est organisé en package Python **`forest_view/`**.
 | **`crs_utils.py`** | Reprojection des coordonnées : `data_to_wgs84(x, y, crs_epsg)` vers WGS84 pour la scène et OSM ; nécessite pyproj si CRS ≠ 4326. |
 | **`io.py`** | Lecture/écriture : `readCSV`, `CSV_to_dict`, `writeCSV`, `readJSON`, `writeJSON`, `export_photo_info_to_csv`. |
 | **`photo_pipeline.py`** | Traitement des photos : `get_valid_pairs`, `stitch_photos` (Hugin), `get_photo_locations`, `quaternion_to_euler`. |
-| **`forms.py`** | Formulaire de saisie de chemins (`DataForm`) et mémorisation dans `appsettings.json`. |
+| **`forms.py`** | Formulaire de saisie de chemins (`DataForm`) et mémorisation dans `appsettings.json`. Formulaires d'édition de données (`NewTreeForm`, `CheckBoxChoiceForm`)|
 | **`logger.py`** | Logging avec rotation quotidienne et archivage. |
 
 ### Sous-package `forest_view/widgets/`
@@ -194,6 +193,7 @@ Les deux scripts se placent automatiquement dans le répertoire du dépôt (là 
 - **Cliquer sur un point photo** : affiche le panorama et met à jour la caméra (lidar + pointeur).
 - **Cliquer sur un point arbre** : affiche les propriétés dans la table ; le point devient jaune sur la carte et dans le nuage lidar.
 - **Sélectionner une ligne dans la table d'attributs** : le point correspondant est mis en surbrillance sur la carte (sans déplacer la vue).
+- **Couches** : paneau latéral **Couches** sélectionner les couches (photos et/ou arbres) visibles avec les boîtes de sélection.
 - **Zoom** : molette. **Déplacement** : glisser avec le bouton gauche de la souris.
 - **CRS** : menu **Carte > CRS** pour choisir le système de coordonnées des données (ex. EPSG:2949, 4326 ou autre).
 
@@ -207,7 +207,7 @@ Les deux scripts se placent automatiquement dans le répertoire du dépôt (là 
 - Glisser avec le bouton gauche pour faire tourner le nuage.
 - Molette centrale pour déplacer la position d'observation ; molette pour le zoom.
 - Clic droit sur un point d'arbre : affichage des données ; le point devient jaune dans le lidar et sur la carte.
-- **Couches** : menu **Lidar** sélectionner les couches (qsm et/ou nuages) visibles avec les boîtes de sélection.
+- **Couches** : paneau latéral **Couches** sélectionner les couches (qsm, nuages et/ou arbres) visibles avec les boîtes de sélection.
 - **Profondeur de vue** : menu **Lidar** > **Profondeur de vue** pour ajuster la distance maximale de la caméra pour l'affichage des points.
 - **Taille des points** : menu **Lidar** > **Taille des points** pour ajuster l'épaisseur de rendu des nuages.
 - **Taille adaptative (caméra)** : réduit/augmente automatiquement la taille apparente des points selon la distance caméra-focale, utile pour limiter l'effet "voir à travers" près de la trajectoire.
@@ -284,3 +284,37 @@ Les deux scripts se placent automatiquement dans le répertoire du dépôt (là 
 
 4. Soumettre et attendre la fin du traitement.
 5. Pour une visualisation complète, ajouter manuellement **`tree_info.csv`**, les **nuages de points complémentaires** et les **QSM** dans le dossier projet si nécessaire.
+
+## Référentiels spatiaux
+
+### PyVista (LidarWindow)
+Référentiel main droite X-Droite, Y-Avant, Z-Haut
+Toutes les directions sont explrimées sous forme de vecteurs ou de point « Look-at »
+
+### OpenGL (GLWidget)
+Référentiel main droite X-Droite, Y-Haut, Z-Arrière (donc Avant = Z-)
+Afin de simplifier le traitement et correspondre au référentiel lidar (voir ci-après), l'application des angles de rotation pour la matrice « model » se font
+| Rotation | Axe |
+| -------- | --- |
+| Yaw | Y |
+| Pitch | -Z |
+| Roll | X |
+
+Toutefois, les angles sur la matrice « view » s'appliquent
+| Rotation | Axe |
+| -------- | --- |
+| Yaw | Y |
+| Pitch | X |
+
+Une image sans orientation (ypr = 0) sera placée avec la marge sur le plan XY et touchera à X+. On verra donc au centre de la vue par défaut (yp = 0) la ligne du ¾ de l'image.
+
+### QGraphicsScene (CustomMapWidget)
+Référentiel X-Droite, Y-Bas, il est donc nécessaire d'inverser la coordonnée Y pour de l'affichage.
+
+### Lidar
+Les lidars ont généralement un référentiel main droite X-Avant, Y-Gauche, Z-Haut avec les angles appliqués
+| Rotation | Axe |
+| -------- | --- |
+| Yaw | Z |
+| Pitch | Y |
+| Roll | X |
