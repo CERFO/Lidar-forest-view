@@ -212,6 +212,12 @@ Les deux scripts se placent automatiquement dans le répertoire du dépôt (là 
 - **Taille des points** : menu **Lidar** > **Taille des points** pour ajuster l'épaisseur de rendu des nuages.
 - **Taille adaptative (caméra)** : réduit/augmente automatiquement la taille apparente des points selon la distance caméra-focale, utile pour limiter l'effet "voir à travers" près de la trajectoire.
 - **Interaction taille + adaptatif** : la taille manuelle devient la base, puis l'adaptatif la module selon la distance caméra/focale.
+- **Prendre des mesures** : menu **Lidar** > **Prendre une mesure** fera apparaitre une fenêtre de mesure
+    - Deux cliques gauche dans la fenêtre lidar pour positionner la ligne de mesure
+    - Clique droit dans la fenêtre lidar ou bouton « Nouveau » de la fenêtre de mesure pour recommencer le trait
+    - Bouton « Pause » pour mettre l'outil en pause et permettre la sélection d'arbres et le mouvement du nuage. Cela mettra fin à la mesure courant si elle n'est pas terminée
+        - Le bouton « Nouveau » annule l'effet du bouton « Pause »
+    - Bouton « Fermer » ou « X » pour sortir de l'outil
 - **Réinitialiser la vue** : revient au point de vue lidar aligné avec la photo active, puis réapplique les réglages d'affichage (taille/couleur/verrouillage up).
 - **Lock world up** : garde l'axe vertical (ciel en haut) stable ; peut être désactivé pour autoriser un roulis libre.
 - **Couleur des points** : applique une couleur globale aux nuages déjà chargés et à ceux chargés ensuite.

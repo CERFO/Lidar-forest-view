@@ -5,8 +5,17 @@ import laspy as lp
 import numpy as np
 from pyvista import get_reader, Actor
 import pyvistaqt as pvqt
-from PyQt6.QtCore import QEvent, pyqtSignal
-from PyQt6.QtWidgets import QApplication, QMainWindow
+from PyQt6.QtCore import QEvent, Qt, pyqtSignal
+from PyQt6.QtGui import QIcon
+from PyQt6.QtWidgets import (
+    QApplication,
+    QDialogButtonBox,
+    QLabel,
+    QMainWindow,
+    QPushButton,
+    QVBoxLayout,
+    QWidget
+)
 
 from forest_view.logger import get_logger
 
@@ -225,7 +234,7 @@ class LidarWindow(QMainWindow):
         if not np.isfinite(cam_to_focal):
             cam_to_focal = float(self.view_depth)
         far_clip = max(float(base_far), cam_to_focal + (float(self.view_depth)), 0.6)
-        self.plotter.camera.clipping_range = (0.5, far_clip)
+        self.plotter.camera.clipping_range = (0.2, far_clip)
 
     def on_render(self, plotter):
         self.camera_parameters = [list(bloc) for bloc in self.plotter.camera_position]
@@ -369,6 +378,16 @@ class LidarWindow(QMainWindow):
         self._apply_cloud_point_size(self._compute_current_point_size())
         self.plotter.render()
 
+    def enable_measures(self):
+        if hasattr(self, 'measurement_widget'):
+            if self.measurement_widget.isVisible():
+                return
+            else:
+                self.measurement_widget.setVisible(True)
+        else:
+            self.measurement_widget = MeasurementWidget(self)
+            self.measurement_widget.show()
+
     def eventFilter(self, obj, event):
         if obj is self.plotter.interactor:
             if event.type() == QEvent.Type.MouseButtonRelease:
@@ -482,3 +501,87 @@ class LidarWindow(QMainWindow):
         super().closeEvent(event)
         if not getattr(self, '_returning_to_project_selection', False):
             QApplication.quit()
+
+
+class MeasurementWidget(QWidget):
+    def __init__(self, parent:LidarWindow):
+        super().__init__(parent)
+
+        self.setWindowTitle('Mesure')
+        self.setStyleSheet('QLabel { font-size: 14pt; }')
+        self.setWindowFlags(
+            self.windowFlags()
+            | Qt.WindowType.WindowStaysOnTopHint
+            | Qt.WindowType.Dialog
+            | Qt.WindowType.WindowCloseButtonHint
+        )
+        layout = QVBoxLayout(self)
+        self.measure = QLabel(self)
+        self.measure.setAlignment(Qt.AlignCenter)
+        layout.addWidget(self.measure)
+
+        buttons = QDialogButtonBox(self)
+        self.pause_btn = QPushButton(QIcon.fromTheme(QIcon.ThemeIcon.MediaPlaybackPause), '', self)
+        self.pause_btn.setCheckable(True)
+        self.pause_btn.toggled.connect(self.toggle_pause)
+        buttons.addButton(self.pause_btn, QDialogButtonBox.ButtonRole.ActionRole)
+        new_measure = QPushButton('Nouveau', self)
+        new_measure.clicked.connect(lambda: self.pause_btn.setChecked(False))
+        new_measure.clicked.connect(self.take_measure)
+        buttons.addButton(new_measure, QDialogButtonBox.ButtonRole.ActionRole)
+        buttons.addButton('Fermer', QDialogButtonBox.ButtonRole.RejectRole)
+        buttons.rejected.connect(self.close)
+        layout.addWidget(buttons)
+
+        self.parent().plotter.interactor.installEventFilter(self)
+        self._toggle_pickability(True)
+        self.take_measure()
+
+    def update_measure(self, start, end, dist):
+        self.measure.setText(f'{dist:.3f}')
+
+    def take_measure(self):
+        self.measure.setText('')
+        self.parent().plotter.clear_measure_widgets()
+        self.parent().plotter.add_measurement_widget(callback=self.update_measure , color = 'black')
+
+    def toggle_pause(self, checked:bool):
+        self._toggle_pickability(not checked)
+        if checked:
+            self.pause_btn.setIcon(QIcon.fromTheme(QIcon.ThemeIcon.MediaPlaybackStart))
+        else:
+            self.parent().plotter.clear_measure_widgets()
+            self.pause_btn.setIcon(QIcon.fromTheme(QIcon.ThemeIcon.MediaPlaybackPause))
+
+    def _toggle_pickability(self, state:bool):
+        if state:
+            self.parent().plotter.disable_picking()
+        else:
+            self.parent().plotter.enable_point_picking(
+                callback=self.parent().on_lidar_selected_tree, show_point=False, show_message=False
+            )
+        for actor in self.parent().cloud_group:
+            actor.pickable = state
+        for actor in self.parent()._tree_actors:
+            act = self.parent().plotter.actors.get(actor)
+            if isinstance(act, Actor):
+                act.pickable = not state
+
+    def eventFilter(self, obj, event):
+        if obj is self.parent().plotter.interactor and self.isVisible() and not self.pause_btn.isChecked():
+            if event.type() == QEvent.Type.MouseButtonPress:
+                if event.button() == Qt.RightButton:
+                    self.take_measure()
+        return super().eventFilter(obj, event)
+    
+    def showEvent(self, event):
+        self._toggle_pickability(True)
+        self.take_measure()
+        return super().showEvent(event)
+
+    def closeEvent(self, event):
+        self.pause_btn.setChecked(False)
+        self._toggle_pickability(False)
+        self.measure.setText('')
+        self.parent().plotter.clear_measure_widgets()
+        return super().closeEvent(event)

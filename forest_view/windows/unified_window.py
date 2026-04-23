@@ -127,6 +127,7 @@ class UnifiedWindow(QMainWindow):
         self.on_lidar_point_color_change = None
         self.on_vector_visibility_change = None
         self.on_view_depth_change = None
+        self.on_measure_request = None
         self._current_point_color = (1.0, 1.0, 1.0)
         self._lidar_widget = None
         self._lidar_layers_panel = None
@@ -264,6 +265,9 @@ class UnifiedWindow(QMainWindow):
         lock_world_up_act = QWidgetAction(self)
         lock_world_up_act.setDefaultWidget(lock_world_up_box)
         menu_lidar.addAction(lock_world_up_act)
+        measure_act = QAction('Prendre une mesure', self)
+        measure_act.triggered.connect(self._on_measure_request)
+        menu_lidar.addAction(measure_act)
         menu_lidar.addSeparator()
         self._action_lidar_help = QAction("Aide", self)
         self._action_lidar_help.triggered.connect(self._show_lidar_settings_help)
@@ -522,6 +526,10 @@ class UnifiedWindow(QMainWindow):
     def _on_view_depth_change(self, view_depth):
         if callable(self.on_view_depth_change):
             self.on_view_depth_change(view_depth)
+
+    def _on_measure_request(self):
+        if callable(self.on_measure_request):
+            self.on_measure_request()
 
     def _show_lidar_settings_help(self):
         QMessageBox.information(
