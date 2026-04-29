@@ -201,6 +201,8 @@ Les deux scripts se placent automatiquement dans le répertoire du dépôt (là 
 
 - Glisser avec le bouton gauche pour changer l'orientation.
 - Molette pour le zoom.
+- **Contraste** : menu **Image** > Contraste
+- **Lunimosité** : menu **Image** > Luminosité
 
 ### Lidar
 

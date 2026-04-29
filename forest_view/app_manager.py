@@ -225,6 +225,7 @@ class AppManager(QObject):
             self._unified_window.on_crs_changed = self.set_map_crs
             self._unified_window.on_basemap_changed = self.set_map_basemap
             self._bind_unified_lidar_controls()
+            self._bind_unified_image_controls()
             self._unified_window._cleanup_before_quit = self._release_vtk_before_quit
         lidar_w = self.lidar_window.centralWidget()
         photo_content = self.photo_window.centralWidget()
@@ -254,6 +255,8 @@ class AppManager(QObject):
         - Réinitialiser la vue : revient au point de vue aligné sur la photo courante.
         - Lock world up : contraint le haut de la caméra sur +Z (horizon stable).
         - Couleur des points : applique la couleur aux nuages existants et futurs.
+        - Profondeur de vue : ajuste la distance du point le plus distant pouvant être vu (far clip)
+        - Prise de mesures : active le widget de prise de mesure
         """
         self._unified_window.on_lidar_vis_change = self.set_lidar_visibility
         self._unified_window.on_lidar_point_size_change = self.set_lidar_point_size
@@ -265,6 +268,16 @@ class AppManager(QObject):
         self._unified_window.on_vector_visibility_change = self.set_vector_visibility
         self._unified_window.on_view_depth_change = self.set_view_depth
         self._unified_window.on_measure_request = self.enable_measures
+
+    def _bind_unified_image_controls(self):
+        """
+        Relie les contrôles du menu Image à la vue panorama
+
+        - Contraste : Ajuste le contraste du panorame
+        - Luminosité : Ajuste la luminosité du panorama
+        """
+        self._unified_window.on_contrast_change = self.set_img_contrast_factor
+        self._unified_window.on_brightness_change = self.set_img_brightness_factor
 
     def set_map_crs(self, epsg: int):
         """Change le CRS de la carte et redessine avec les mêmes données."""
@@ -318,6 +331,12 @@ class AppManager(QObject):
 
     def enable_measures(self):
         self.lidar_window.enable_measures()
+
+    def set_img_contrast_factor(self, factor):
+        self.photo_window.gl_widget.set_img_contrast(factor)
+
+    def set_img_brightness_factor(self, factor):
+        self.photo_window.gl_widget.set_img_brightness(factor)
 
     def update_tree_info(self, list_of_dicts):
         self.tree_info = list_of_dicts

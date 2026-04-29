@@ -32,7 +32,7 @@ from OpenGL.GL import (
     glVertexAttribPointer,
     glViewport,
 )
-from PIL import Image
+from PIL import Image, ImageEnhance
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QCursor, QMatrix4x4
 from PyQt6.QtOpenGL import QOpenGLShader, QOpenGLShaderProgram
@@ -66,6 +66,8 @@ class GLWidget(QOpenGLWidget):
         self.prev_dx = 0
         self.prev_dy = 0
         self.fov = 90
+        self.contrast_factor = 1
+        self.brightness_factor = 1
         self.moving = False
         self.main_window = parent
         self.photo_dir = photo_dir
@@ -153,11 +155,15 @@ class GLWidget(QOpenGLWidget):
         self.program.setUniformValue(self.mvp_loc, mvp)
         glBindTexture(GL_TEXTURE_2D, self.texture)
         if self.texture_pending:
+            brightness_enhancer = ImageEnhance.Brightness(self.image)
+            new_image = brightness_enhancer.enhance(self.brightness_factor)
+            contrast_enhancer = ImageEnhance.Contrast(new_image)
+            new_image = contrast_enhancer.enhance(self.contrast_factor)
             glTexImage2D(
                 GL_TEXTURE_2D, 0, GL_RGB,
                 self.image_width, self.image_height,
                 0, GL_RGB, GL_UNSIGNED_BYTE,
-                self.image.tobytes()
+                new_image.tobytes()
             )
             self.texture_pending = False
         glBindVertexArray(self.vao)
@@ -177,6 +183,16 @@ class GLWidget(QOpenGLWidget):
             self.focus_on_tree()
         else:
             self.tree_focused = False
+
+    def set_img_contrast(self, factor):
+        self.contrast_factor = factor
+        self.texture_pending = True
+        self.update()
+
+    def set_img_brightness(self, factor):
+        self.brightness_factor = factor
+        self.texture_pending = True
+        self.update()
 
     def on_tree_selection(self, tree_coords):
         prev_tree_coords = self.selected_tree_coords
