@@ -272,8 +272,9 @@ class ProjectMaker(QWidget):
 
                 total_data.extend(new_data)
                 src_path = info[3]
-                dst_path = os.path.join(project_path, os.path.basename(info[3]))
-                shutil.copy2(src_path, dst_path)
+                if os.path.exists(src_path):
+                    dst_path = os.path.join(project_path, os.path.basename(info[3]))
+                    shutil.copy2(src_path, dst_path)
                 progress_bar.setValue(i+1)
                 QApplication.processEvents()
 
