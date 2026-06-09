@@ -141,6 +141,9 @@ class GLWidget(QOpenGLWidget):
         self.brightness_loc = self.program.uniformLocation("brightness")
         self.contrast_loc = self.program.uniformLocation("contrast")
         self.means_loc = self.program.uniformLocation("means")
+        self.program.bind()
+        self.program.setUniformValue(self.means_loc, *self.band_means)
+        self.program.release()
         self.texture = glGenTextures(1)
         glBindTexture(GL_TEXTURE_2D, self.texture)
         glTexImage2D(
