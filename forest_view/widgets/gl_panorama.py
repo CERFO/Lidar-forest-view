@@ -60,7 +60,7 @@ class GLWidget(QOpenGLWidget):
         super().__init__(parent)
         self.image = Image.new('RGB', (100, 50), color='gray')
         self.image_width, self.image_height = self.image.size
-        self.band_means = [v/255 for v in ImageStat.Stat(self.image).mean]
+        self.band_means = [v/255 for v in ImageStat.Stat(self.image).mean[:3]]
         self.yaw = 0
         self.pitch = 0
         self.image_roll = 0
@@ -79,7 +79,7 @@ class GLWidget(QOpenGLWidget):
             try:
                 self.image = Image.open(os.path.join(self.photo_dir, image_path))
                 self.image_width, self.image_height = self.image.size
-                self.band_means = [v/255 for v in ImageStat.Stat(self.image).mean]
+                self.band_means = [v/255 for v in ImageStat.Stat(self.image).mean[:3]]
                 if hasattr(self, 'texture'):
                     self.texture_pending = True
                 self.model.setToIdentity()
