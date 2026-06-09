@@ -11,6 +11,7 @@ from PyQt6.QtWidgets import (
     QMenu,
     QMenuBar,
     QMessageBox,
+    QSlider,
     QSplitter,
     QSplitterHandle,
     QSizePolicy,
@@ -127,6 +128,9 @@ class UnifiedWindow(QMainWindow):
         self.on_lidar_point_color_change = None
         self.on_vector_visibility_change = None
         self.on_view_depth_change = None
+        self.on_measure_request = None
+        self.on_contrast_change = None
+        self.on_brightness_change = None
         self._current_point_color = (1.0, 1.0, 1.0)
         self._lidar_widget = None
         self._lidar_layers_panel = None
@@ -264,11 +268,47 @@ class UnifiedWindow(QMainWindow):
         lock_world_up_act = QWidgetAction(self)
         lock_world_up_act.setDefaultWidget(lock_world_up_box)
         menu_lidar.addAction(lock_world_up_act)
+        measure_act = QAction('Prendre une mesure', self)
+        measure_act.triggered.connect(self._on_measure_request)
+        menu_lidar.addAction(measure_act)
         menu_lidar.addSeparator()
         self._action_lidar_help = QAction("Aide", self)
         self._action_lidar_help.triggered.connect(self._show_lidar_settings_help)
         menu_lidar.addAction(self._action_lidar_help)
         menu_bar.addMenu(menu_lidar)
+
+        menu_image = QMenu('Image', self)
+        img_contrast_row = QWidget(self)
+        img_contrast_layout = QHBoxLayout(img_contrast_row)
+        img_contrast_layout.addWidget(QLabel('Contraste', self))
+        img_contrast_slider = QSlider(Qt.Orientation.Horizontal, self)
+        img_contrast_slider.setMinimumWidth(20)
+        img_contrast_slider.setMinimum(0)
+        img_contrast_slider.setMaximum(40)
+        img_contrast_slider.setValue(20)
+        img_contrast_slider.valueChanged.connect(
+            lambda value: self._on_contrast_change(value/20)
+        )
+        img_contrast_layout.addWidget(img_contrast_slider)
+        img_contrast_act = QWidgetAction(self)
+        img_contrast_act.setDefaultWidget(img_contrast_row)
+        menu_image.addAction(img_contrast_act)
+        img_brightness_row = QWidget(self)
+        img_brightness_layout = QHBoxLayout(img_brightness_row)
+        img_brightness_layout.addWidget(QLabel('Luminosité', self))
+        img_brightness_slider = QSlider(Qt.Orientation.Horizontal, self)
+        img_brightness_slider.setMinimumWidth(20)
+        img_brightness_slider.setMinimum(0)
+        img_brightness_slider.setMaximum(40)
+        img_brightness_slider.setValue(20)
+        img_brightness_slider.valueChanged.connect(
+            lambda value: self._on_brightness_change(value/20)
+        )
+        img_brightness_layout.addWidget(img_brightness_slider)
+        img_brightness_act = QWidgetAction(self)
+        img_brightness_act.setDefaultWidget(img_brightness_row)
+        menu_image.addAction(img_brightness_act)
+        menu_bar.addMenu(menu_image)
         self.setMenuBar(menu_bar)
         self._build_lidar_layers_panel()
 
@@ -522,6 +562,18 @@ class UnifiedWindow(QMainWindow):
     def _on_view_depth_change(self, view_depth):
         if callable(self.on_view_depth_change):
             self.on_view_depth_change(view_depth)
+
+    def _on_measure_request(self):
+        if callable(self.on_measure_request):
+            self.on_measure_request()
+
+    def _on_contrast_change(self, factor):
+        if callable(self.on_contrast_change):
+            self.on_contrast_change(factor)
+
+    def _on_brightness_change(self, factor):
+        if callable(self.on_brightness_change):
+            self.on_brightness_change(factor)
 
     def _show_lidar_settings_help(self):
         QMessageBox.information(

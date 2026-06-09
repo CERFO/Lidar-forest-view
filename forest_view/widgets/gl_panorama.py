@@ -32,7 +32,7 @@ from OpenGL.GL import (
     glVertexAttribPointer,
     glViewport,
 )
-from PIL import Image
+from PIL import Image, ImageStat
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QCursor, QMatrix4x4
 from PyQt6.QtOpenGL import QOpenGLShader, QOpenGLShaderProgram
@@ -60,12 +60,15 @@ class GLWidget(QOpenGLWidget):
         super().__init__(parent)
         self.image = Image.new('RGB', (100, 50), color='gray')
         self.image_width, self.image_height = self.image.size
+        self.band_means = [v/255 for v in ImageStat.Stat(self.image).mean[:3]]
         self.yaw = 0
         self.pitch = 0
         self.image_roll = 0
         self.prev_dx = 0
         self.prev_dy = 0
         self.fov = 90
+        self.contrast_factor = 1.0
+        self.brightness_factor = 1.0
         self.moving = False
         self.main_window = parent
         self.photo_dir = photo_dir
@@ -76,6 +79,7 @@ class GLWidget(QOpenGLWidget):
             try:
                 self.image = Image.open(os.path.join(self.photo_dir, image_path))
                 self.image_width, self.image_height = self.image.size
+                self.band_means = [v/255 for v in ImageStat.Stat(self.image).mean[:3]]
                 if hasattr(self, 'texture'):
                     self.texture_pending = True
                 self.model.setToIdentity()
@@ -91,6 +95,7 @@ class GLWidget(QOpenGLWidget):
         else:
             self.image = Image.new('RGB', (100, 50), color='gray')
             self.image_width, self.image_height = self.image.size
+            self.band_means = [v/255 for v in ImageStat.Stat(self.image).mean]
             if hasattr(self, 'texture'):
                 self.texture_pending = True
             self.yaw = 0
@@ -121,12 +126,24 @@ class GLWidget(QOpenGLWidget):
             "#version 450\n"
             "in vec2 vTex;\n"
             "out vec4 fragColor;\n"
+            "uniform float brightness;\n"
+            "uniform float contrast;\n"
+            "uniform vec3 means;\n"
             "uniform sampler2D tex;\n"
-            "void main() { fragColor = texture(tex, vTex); }\n"
+            "void main() { vec4 c = texture(tex, vTex);\n"
+            "   vec3 adjMeans = means * brightness;\n"
+            "   vec3 color = c.rgb * brightness;\n"
+            "   color = (color - adjMeans) * contrast + adjMeans;\n"
+            "   fragColor = vec4 (color, c.a); }\n"
         )
         self.program.link()
         self.mvp_loc = self.program.uniformLocation("MVP")
-
+        self.brightness_loc = self.program.uniformLocation("brightness")
+        self.contrast_loc = self.program.uniformLocation("contrast")
+        self.means_loc = self.program.uniformLocation("means")
+        self.program.bind()
+        self.program.setUniformValue(self.means_loc, *self.band_means)
+        self.program.release()
         self.texture = glGenTextures(1)
         glBindTexture(GL_TEXTURE_2D, self.texture)
         glTexImage2D(
@@ -151,6 +168,8 @@ class GLWidget(QOpenGLWidget):
         mvp = self.projection * self.view * self.model
         self.program.bind()
         self.program.setUniformValue(self.mvp_loc, mvp)
+        self.program.setUniformValue(self.brightness_loc, self.brightness_factor)
+        self.program.setUniformValue(self.contrast_loc, self.contrast_factor)
         glBindTexture(GL_TEXTURE_2D, self.texture)
         if self.texture_pending:
             glTexImage2D(
@@ -159,6 +178,7 @@ class GLWidget(QOpenGLWidget):
                 0, GL_RGB, GL_UNSIGNED_BYTE,
                 self.image.tobytes()
             )
+            self.program.setUniformValue(self.means_loc, *self.band_means)
             self.texture_pending = False
         glBindVertexArray(self.vao)
         glDrawArrays(GL_TRIANGLES, 0, self.vertex_count)
@@ -177,6 +197,14 @@ class GLWidget(QOpenGLWidget):
             self.focus_on_tree()
         else:
             self.tree_focused = False
+
+    def set_img_contrast(self, factor):
+        self.contrast_factor = factor
+        self.update()
+
+    def set_img_brightness(self, factor):
+        self.brightness_factor = factor
+        self.update()
 
     def on_tree_selection(self, tree_coords):
         prev_tree_coords = self.selected_tree_coords
