@@ -10,7 +10,6 @@ CONVERSION_FACTORS = {'m': 1, 'cm': 100, 'mm': 1000,
 
 class TreeMarkerWidget(QWidget):
     """ Widget gérant la sélection de tiges pour le martelage"""
-    # Signaux
     tree_selection_changed = pyqtSignal()
 
     def __init__(self, propriety_widget:ProprietyWidget, parent=None):
@@ -18,6 +17,7 @@ class TreeMarkerWidget(QWidget):
 
         self.propriety_widget = propriety_widget
         self.table = propriety_widget.table
+        self._counter = 0
         
         form = SurfaceColumnForm(self.propriety_widget._fields, self)
         if form.exec() != QDialog.DialogCode.Accepted:
@@ -58,6 +58,8 @@ class TreeMarkerWidget(QWidget):
         self.selected_surface = float(0)
         self.selected_surface_ratio = float(0)
 
+        self.propriety_widget.add_selection_col('Martelage')
+
         layout = QGridLayout(self)
         for i, (label, value) in enumerate(zip(("Nb d'arbres sélectionnés", "Nb d'arbres total", "Surface terrière sélectionnée", "Surface terrière totale"),
                                                (self.selected_tree_n, self.total_tree_n, self.selected_surface, self.total_surface))):
@@ -69,18 +71,49 @@ class TreeMarkerWidget(QWidget):
         for i, value in enumerate((self.selected_tree_ratio, self.selected_surface_ratio)):
             layout.addWidget(QLabel(f"{value * 100:.1f} %"), 2*i, 2, 2, 1)
 
-    def on_selection_change(self):
-        # Transmettre sélections à la carte
-        # Transmettre sélections à la fenêtre lidar????
-        # Ajustement de la surface terrière
-        # Transmission des signaux pour le changement de couleur et le retrait des qsm
-        pass
+    def on_selection_change(self, payload, marked):
+        """Calcul et met à jour les valeurs des paramètres suite à une modification de sélection"""
+        _, data = payload
+        surface = float(data[self.surface_col]) if self.is_float(data[self.surface_col]) else 0
+        
+        self._counter += 1
+        if self._counter % 50 == 0: # NOTE : pas certain que ce soit nécessaire
+            select_col = self.propriety_widget.get_col_from_header('Martelage')
+            surf_col = self.propriety_widget.get_col_from_header(self.surface_col)
+            selection = [
+                self.table.item(row, select_col).checkState() == Qt.CheckState.Checked
+                for row in range(self.table.rowCount())
+            ]
+            texts = [
+                self.table.item(row, surf_col).text()
+                for row in range(self.table.rowCount())
+                if self.table.item(row, surf_col) is not None
+            ]
+            self.selected_tree_n = sum(selection)
+            self.selected_surface = sum([float(text) / self.conversion for text, selected in zip(texts, selection) if self.is_float(text) and selected])
+        elif marked:
+            self.selected_tree_n += 1
+            self.selected_surface += surface
+        else:
+            self.selected_tree_n -= 1
+            self.selected_surface -= surface
+        self._calculate_ratios()
+        self._update_data()
 
-    def add_selection_col(self):
-        # Ajouter une colonne de sélection à la table d'attributs
-            # Elle doit toujours être la dernière (même si on ajoute des colonnes)
-        # Pourait être implémenté dans ProprietyWidget
-        pass
+    def _calculate_ratios(self):
+        self.selected_tree_ratio = self.selected_tree_n / self.total_tree_n
+        self.selected_surface_ratio = self.selected_surface / self.total_surface
+
+    def _update_data(self):
+        """Met à jour la donnée dans la mise en page du widget"""
+        layout = self.layout()
+        for i, value in enumerate((self.selected_tree_n, self.total_tree_n, self.selected_surface, self.total_surface)):
+            fmt = ".0f" if isinstance(value, int) else ".2f"
+            unit = "" if isinstance(value, int) else " m²"
+            layout.itemAtPosition(i,1).widget().setText(f"{value:{fmt}}{unit}")
+
+        for i, value in enumerate((self.selected_tree_ratio, self.selected_surface_ratio)):
+            layout.itemAtPosition(2*i,2).widget().setText(f"{value * 100:.1f} %")
 
     @staticmethod
     def is_float(value):
@@ -105,10 +138,3 @@ class TreeMarkerWidget(QWidget):
         painter.setBrush(QColor(180, 180, 180, 150))
         painter.drawRoundedRect(self.rect(), 8, 8)
         return super().paintEvent(event)
-
-if __name__ == "__main__":
-    from PyQt6.QtWidgets import QApplication
-    app = QApplication([])
-    widget = TreeMarkerWidget()
-    widget.show()
-    app.exec()

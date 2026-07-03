@@ -29,6 +29,8 @@ class ProprietyWidget(QWidget):
     row_removed = pyqtSignal(object)
     col_removed = pyqtSignal(str)
 
+    mark_tree = pyqtSignal(object, bool)
+
     def __init__(self, fields):
         super().__init__()
         self._fields = []
@@ -37,6 +39,7 @@ class ProprietyWidget(QWidget):
         self._filter_only_selected = False
         self._changes_made = False
         self._editing = False
+        self._check_cols = []
         self.table = QTableWidget()
         self.table.setAlternatingRowColors(True)
         self.table.horizontalHeader().setStretchLastSection(True)
@@ -170,9 +173,36 @@ class ProprietyWidget(QWidget):
 
     def _on_cell_changed(self, row, col):
         self._all_data[row][self.table.horizontalHeaderItem(col).text()] = self.table.item(row,col).text()
-        changed_line = [[self.table.horizontalHeaderItem(c).text(), self.table.item(row, c).text() if self.table.item(row, c) is not None else None] for c in range(self.table.columnCount())]
+        changed_line = [
+            [
+                self.table.horizontalHeaderItem(c).text(),
+                self.table.item(row, c).text()
+                if self.table.item(row, c) is not None
+                else None,
+            ]
+            for c in range(self.table.columnCount())
+            if c not in self._check_cols
+        ]
         self.tree_data_changed.emit((row, {k:v for k, v in changed_line}))
         self._changes_made = True
+
+    def _on_item_change(self, item):
+        if item.column() not in self._check_cols:
+            return
+        
+        row = item.row()
+        changed_line = [
+            [
+                self.table.horizontalHeaderItem(c).text(),
+                self.table.item(row, c).text()
+                if self.table.item(row, c) is not None
+                else None,
+            ]
+            for c in range(self.table.columnCount())
+            if c not in self._check_cols
+        ]
+
+        self.mark_tree.emit((row, {k:v for k, v in changed_line}), item.checkState() == Qt.CheckState.Checked)
 
     def add_col(self, new_col_name = None):
         """ Ajoute une colonne d'un nom choisi """
@@ -184,13 +214,34 @@ class ProprietyWidget(QWidget):
             return
         
         self._fields.append(new_col_name)
-        self.table.insertColumn(self.table.columnCount())
-        col_idx = self.table.columnCount()-1
+
+        col_idx = self.table.columnCount()
+        if col_idx - 1 in self._check_cols:
+            col_idx = min(self._check_cols)
+            self._check_cols = [col + 1 for col in self._check_cols]
+
+        self.table.insertColumn(col_idx)
         self.table.setHorizontalHeaderItem(col_idx, QTableWidgetItem(new_col_name))
         for entry in self._all_data:
             entry[new_col_name] = ''
         for row in range(self.table.rowCount()):
             self.table.setItem(row, col_idx, QTableWidgetItem(str()))
+
+    def add_selection_col(self, new_col_name):
+        self.table.insertColumn(self.table.columnCount())
+        col_idx = self.table.columnCount()-1
+        self._check_cols.append(col_idx) # NOTE : fragile à la modification des colonnes. Modifier les insertions et délétions de colonnes pour que tout fonctionne
+        self.table.setHorizontalHeaderItem(col_idx, QTableWidgetItem(new_col_name))
+        for row in range(self.table.rowCount()):
+            item = QTableWidgetItem()
+            item.setFlags(
+                Qt.ItemFlag.ItemIsUserCheckable |
+                Qt.ItemFlag.ItemIsEnabled
+            )
+            item.setCheckState(Qt.CheckState.Unchecked)
+            self.table.setItem(row, col_idx, item)
+
+        self.table.itemChanged.connect(self._on_item_change)
 
     def add_tree(self):
         """ Appel le formulaire pour les nouveaux arbres """
@@ -223,33 +274,36 @@ class ProprietyWidget(QWidget):
         return None
 
     def remove_col(self):
-        if self._editing and self.table.columnCount() > 0:
-            form = CheckBoxChoiceForm(self, self._fields)
-            if form.exec() != QDialog.DialogCode.Accepted:
-                return
-            to_remove = [field for field, remove in form.get_choices().items() if remove is True]
-            if not to_remove:
-                return
-            confirm = QMessageBox.question(
-                self,
-                'Confirmer',
-                'Retirer les champs sélectionnés des arbres ? Cette action est irréversible sans recharger les données.',
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                QMessageBox.StandardButton.No,
-            )
-            if confirm != QMessageBox.StandardButton.Yes:
-                return
+        if not self._editing and self.table.columnCount() == 0:
+            return
+        form = CheckBoxChoiceForm(self, self._fields)
+        if form.exec() != QDialog.DialogCode.Accepted:
+            return
+        to_remove = [field for field, remove in form.get_choices().items() if remove is True]
+        if not to_remove:
+            return
+        confirm = QMessageBox.question(
+            self,
+            'Confirmer',
+            'Retirer les champs sélectionnés des arbres ? Cette action est irréversible sans recharger les données.',
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if confirm != QMessageBox.StandardButton.Yes:
+            return
+        
+        self._check_cols = [col - 1 for col in self._check_cols]
 
-            for field in to_remove:
-                self._fields.remove(field)
-                for entry in self._all_data:
-                    entry.pop(field, None)
-                for col in range(self.table.columnCount()):
-                    if self.table.horizontalHeaderItem(col).text() == field:
-                        self.table.removeColumn(col)
-                        break
-                self.col_removed.emit(field)
-            self._changes_made = True
+        for field in to_remove:
+            self._fields.remove(field)
+            for entry in self._all_data:
+                entry.pop(field, None)
+            for col in range(self.table.columnCount()):
+                if self.table.horizontalHeaderItem(col).text() == field:
+                    self.table.removeColumn(col)
+                    break
+            self.col_removed.emit(field)
+        self._changes_made = True
 
     def delete_current_line(self):
         """ Retire la ligne sélectionnée, stock sont index, puis émet la donnée """

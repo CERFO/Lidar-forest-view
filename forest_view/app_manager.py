@@ -121,6 +121,9 @@ class AppManager(QObject):
         self.photo_window.propriety_widget.col_removed.connect(
             self.photo_window.map_widget.remove_tree_field
         )
+        self.photo_window.propriety_widget.mark_tree.connect(
+            self.photo_window.map_widget.mark_tree
+        )
         self.lidar_window.lidar_tree_selected.connect(
             self.photo_window.map_widget.highlight_tree_by_location
         )

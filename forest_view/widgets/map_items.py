@@ -84,6 +84,7 @@ class TreePoint(QGraphicsEllipseItem):
         self.data_x = data_x
         self.data_y = data_y
         self.row_index = row_index
+        self.marked = False
         label = QGraphicsTextItem(str(tree_data.get('No_tige', '')), self)
         label.setFlag(QGraphicsTextItem.GraphicsItemFlag.ItemIgnoresTransformations)
         label.adjustSize()
@@ -103,6 +104,8 @@ class TreePoint(QGraphicsEllipseItem):
     def paint(self, painter, option, widget=None):
         if self.isSelected():
             self.setBrush(Qt.GlobalColor.yellow)
+        elif self.marked:
+            self.setBrush(Qt.GlobalColor.red)
         else:
             self.setBrush(Qt.GlobalColor.green)
         option.state &= ~QStyle.StateFlag.State_Selected

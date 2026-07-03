@@ -435,11 +435,18 @@ class CustomMapWidget(QGraphicsView):
             self.map_tree_selected.emit(tree_position)
 
     def update_tree_data(self, payload):
-        """ Trouve puis met à lour la donnée d'un point d'arbre
+        """ Trouve puis met à jour la donnée d'un point d'arbre
         payload = (row_index, tree_data) ou tree_data"""
         tree = self.find_tree_by_data(payload)
         if tree is not None:
             tree.tree_data.update(payload[1] if isinstance(payload, (list, tuple)) and len(payload) == 2 else payload)
+
+    def mark_tree(self, payload, marked):
+        """Trouve puis «coupe» l'arbre reçu"""
+        tree = self.find_tree_by_data(payload)
+        if tree is not None:
+            tree.marked = marked
+            tree.update()
 
     def remove_tree(self, payload):
         """ Retire un point d'arbre de l'affichage

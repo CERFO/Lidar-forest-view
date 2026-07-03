@@ -466,6 +466,7 @@ class UnifiedWindow(QMainWindow):
             ) # TODO : Trouver une manière plus propore de unpack
             self._tree_marking_widget = TreeMarkerWidget(propriety_widget)
             self._panorama_container.add_tree_marker_panel(self._tree_marking_widget)
+            propriety_widget.mark_tree.connect(self._tree_marking_widget.on_selection_change)
         visible = self._tree_marking_widget.isVisible()
         self._tree_marking_widget.setVisible(not visible)
         if self._marking_btn is not None:
