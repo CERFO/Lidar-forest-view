@@ -6,11 +6,13 @@ from PyQt6.QtCore import Qt, QEvent, QStandardPaths
 from PyQt6.QtGui import QFont, QCursor
 from PyQt6.QtWidgets import (
     QCheckBox,
+    QComboBox,
     QDialog,
     QFileDialog,
     QFormLayout,
     QHBoxLayout,
     QLabel,
+    QLayout,
     QLineEdit,
     QMessageBox,
     QPushButton,
@@ -246,3 +248,61 @@ class CheckBoxChoiceForm(QDialog):
 
     def get_choices(self):
         return self.choice_dict
+
+class SurfaceColumnForm(QDialog):
+    """Permet de sélectionner la colonne et l'unité pour le DHP ou la surface terrière"""
+    def __init__(self, choices:list[str], parent=None):
+        super().__init__(parent)
+
+        self.setWindowTitle('Colonne de surface terrière')
+        self.setWindowFlags(
+            self.windowFlags()
+            | Qt.WindowType.WindowStaysOnTopHint
+            | Qt.WindowType.Dialog
+            | Qt.WindowType.WindowCloseButtonHint
+        )
+
+        layout = QVBoxLayout(self)
+        layout.setVerticalSizeConstraint(QLayout.SizeConstraint.SetMinimumSize)
+        self.col_type = QComboBox()
+        self.col_type.addItems(['Surface terrière', 'DHP'])
+        self.col_type.currentTextChanged.connect(self._on_type_change)
+        layout.addWidget(self.col_type)
+        self.col_name = QComboBox(self)
+        self.col_name.addItems(choices)
+        layout.addWidget(self.col_name)
+        self.units_ST = QComboBox()
+        self.units_ST.addItems(['m²', 'cm²', 'mm²'])
+        layout.addWidget(self.units_ST)
+        self.units_DBH = QComboBox()
+        self.units_DBH.addItems(['m', 'cm', 'mm'])
+        self.units_DBH.setVisible(False)
+        layout.addWidget(self.units_DBH)
+        self.new_col_label = QLabel('Nouvelle colonne')
+        self.new_col_label.setVisible(False)
+        layout.addWidget(self.new_col_label)
+        self.new_col_name = QLineEdit('ST')
+        self.new_col_name.setVisible(False)
+        layout.addWidget(self.new_col_name)
+        submit_button = QPushButton("Soumettre")
+        submit_button.clicked.connect(self.submit_choice)
+        layout.addWidget(submit_button)
+
+    def _on_type_change(self, new_text):
+        self.units_ST.setVisible(new_text == 'Surface terrière')
+        self.units_DBH.setVisible(new_text == 'DHP')
+        self.new_col_label.setVisible(new_text == 'DHP')
+        self.new_col_name.setVisible(new_text == 'DHP')
+        self.adjustSize()
+
+    def submit_choice(self):
+        self.accept()
+
+    def get_choices(self):
+        if self.col_type.currentText() == 'Surface terrière':
+            return self.col_type.currentText(), [self.col_name.currentText(), self.units_ST.currentText()]
+
+        if self.col_type.currentText() == 'DHP':
+            return self.col_type.currentText(), [self.col_name.currentText(), self.units_DBH.currentText(), self.new_col_name.text()]
+
+

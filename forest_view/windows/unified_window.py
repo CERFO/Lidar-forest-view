@@ -24,6 +24,8 @@ from PyQt6.QtWidgets import (
     QStyleOptionButton,
 )
 
+from forest_view.widgets import TreeMarkerWidget
+
 
 class PanoramaMapOverlayContainer(QWidget):
     """Conteneur : panorama en fond, panneau carte en overlay (plein écran sur le panorama)."""
@@ -31,6 +33,7 @@ class PanoramaMapOverlayContainer(QWidget):
         super().__init__(parent)
         self._panorama = None
         self._map_panel = None
+        self._tree_marker = None
 
     def set_panels(self, panorama_widget, map_panel):
         if self._panorama:
@@ -48,6 +51,17 @@ class PanoramaMapOverlayContainer(QWidget):
             map_panel.raise_()
         self._update_geometries()
 
+    def add_tree_marker_panel(self, tree_marker_widget):
+        if self._tree_marker:
+            self._tree_marker.setParent(None)
+        self._tree_marker = tree_marker_widget
+        if tree_marker_widget:
+            tree_marker_widget.setParent(self)
+            tree_marker_widget.setMinimumSize(0, 0)
+            tree_marker_widget.setMaximumSize(16777215, 16777215)
+            tree_marker_widget.raise_()
+        self._update_geometries()
+
     def _update_geometries(self):
         r = self.rect()
         if self._panorama:
@@ -58,6 +72,14 @@ class PanoramaMapOverlayContainer(QWidget):
             left = r.width() - width
             self._map_panel.setGeometry(QRect(left, 0, width, height))
             self._map_panel.raise_()
+        if self._tree_marker:
+            self._tree_marker.adjustSize()
+            width = self._tree_marker.width()
+            height = self._tree_marker.height()
+            left = r.width() - width
+            top = r.height() - height
+            self._tree_marker.setGeometry(QRect(left, top, width, height))
+            self._tree_marker.raise_()
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
@@ -136,6 +158,7 @@ class UnifiedWindow(QMainWindow):
         self._lidar_layers_panel = None
         self._lidar_toggle_btn = None
         self._panorama_container = None
+        self._tree_marking_widget = None
         self._right_container = None
         self._bottom_container = None
 
@@ -417,6 +440,12 @@ class UnifiedWindow(QMainWindow):
         self._lidar_toggle_btn.setToolTip("Ouvrir les couches lidar")
         self._lidar_toggle_btn.clicked.connect(self._toggle_lidar_layers_panel)
 
+        self._marking_btn = VerticalLabelPushButton("Martellage", self)
+        self._marking_btn.setFixedWidth(28)
+        self._marking_btn.setFixedHeight(100)
+        self._marking_btn.setToolTip("Ouvrir l'outil de martelage")
+        self._marking_btn.clicked.connect(self._toggle_marking_widget)
+
     def _toggle_lidar_layers_panel(self):
         if self._lidar_layers_panel is None:
             return
@@ -425,6 +454,23 @@ class UnifiedWindow(QMainWindow):
         if self._lidar_toggle_btn is not None:
             self._lidar_toggle_btn.setToolTip(
                 "Fermer les couches lidar" if not visible else "Ouvrir les couches lidar"
+            )
+
+    def _toggle_marking_widget(self):
+        if self._tree_marking_widget is None:
+            propriety_widget = (
+                self._bottom_container
+                .layout().itemAt(0).widget()
+                .layout().itemAt(0).widget()
+                .layout().itemAt(1).widget()
+            ) # TODO : Trouver une manière plus propore de unpack
+            self._tree_marking_widget = TreeMarkerWidget(propriety_widget)
+            self._panorama_container.add_tree_marker_panel(self._tree_marking_widget)
+        visible = self._tree_marking_widget.isVisible()
+        self._tree_marking_widget.setVisible(not visible)
+        if self._marking_btn is not None:
+            self._tree_marking_widget.setToolTip(
+                "Fermer l'outil de martelage" if not visible else "Ouvrir l'outil de martelage"
             )
 
     def _attach_lidar_controls_to_right_container(self, right_container):
@@ -444,12 +490,27 @@ class UnifiedWindow(QMainWindow):
                 self._lidar_toggle_btn.setParent(right_buttons)
                 right_buttons_layout.insertWidget(1, self._lidar_toggle_btn, 0)
 
+    def _attach_marking_controls_to_right_container(self, right_container):
+        if right_container is None or self._marking_btn is None:
+            return
+        right_layout = right_container.layout()
+        last_item = right_layout.itemAt(right_layout.count() - 1)
+        if last_item is None:
+            return
+        right_buttons = last_item.widget()
+        if right_buttons is not None and right_buttons.layout() is not None:
+            right_buttons_layout = right_buttons.layout()
+            if self._marking_btn.parent() is not right_buttons:
+                self._marking_btn.setParent(right_buttons)
+                right_buttons_layout.insertWidget(2, self._marking_btn, 0)
+
     def set_widgets(self, lidar_widget, panorama_widget, map_panel, right_container, bottom_container):
         """Affiche les vues : splitter (Lidar | Panorama+carte), bandeau droit, bandeau bas (propriétés + toggle)."""
         self.take_widgets()
         self._right_container = right_container
         self._bottom_container = bottom_container
         self._lidar_widget = lidar_widget
+        self._panorama_widget = panorama_widget
 
         panorama_container = PanoramaMapOverlayContainer()
         panorama_container.set_panels(panorama_widget, map_panel)
@@ -467,6 +528,7 @@ class UnifiedWindow(QMainWindow):
 
         if right_container:
             self._attach_lidar_controls_to_right_container(right_container)
+            self._attach_marking_controls_to_right_container(right_container)
             self._top_row_layout.addWidget(right_container, 0)
         if bottom_container:
             self._main_layout.insertWidget(1, bottom_container, 0)

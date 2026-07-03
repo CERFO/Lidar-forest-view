@@ -174,19 +174,23 @@ class ProprietyWidget(QWidget):
         self.tree_data_changed.emit((row, {k:v for k, v in changed_line}))
         self._changes_made = True
 
-    def add_col(self):
+    def add_col(self, new_col_name = None):
         """ Ajoute une colonne d'un nom choisi """
-        if self._editing:
-            name, accepted = QInputDialog.getText(self, 'Nom du champ', 'Champ')
-            if accepted:
-                self._fields.append(name)
-                self.table.insertColumn(self.table.columnCount())
-                col_idx = self.table.columnCount()-1
-                self.table.setHorizontalHeaderItem(col_idx, QTableWidgetItem(name))
-                for entry in self._all_data:
-                    entry[name] = ''
-                for row in range(self.table.rowCount()):
-                    self.table.setItem(row, col_idx, QTableWidgetItem(str()))
+        if not new_col_name and self._editing:
+            new_col_name, accepted = QInputDialog.getText(self, 'Nom du champ', 'Champ')
+            if not accepted:
+                return
+        elif not new_col_name:
+            return
+        
+        self._fields.append(new_col_name)
+        self.table.insertColumn(self.table.columnCount())
+        col_idx = self.table.columnCount()-1
+        self.table.setHorizontalHeaderItem(col_idx, QTableWidgetItem(new_col_name))
+        for entry in self._all_data:
+            entry[new_col_name] = ''
+        for row in range(self.table.rowCount()):
+            self.table.setItem(row, col_idx, QTableWidgetItem(str()))
 
     def add_tree(self):
         """ Appel le formulaire pour les nouveaux arbres """
@@ -210,6 +214,13 @@ class ProprietyWidget(QWidget):
         if self._changes_made:
             self.saved_data.emit(self._all_data)
             self._changes_made = False
+
+    def get_col_from_header(self, header:str):
+        for i in range(self.table.columnCount()):
+            item = self.table.horizontalHeaderItem(i)
+            if item and item.text() == header:
+                return i
+        return None
 
     def remove_col(self):
         if self._editing and self.table.columnCount() > 0:
