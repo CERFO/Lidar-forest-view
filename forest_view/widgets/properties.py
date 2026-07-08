@@ -28,7 +28,6 @@ class ProprietyWidget(QWidget):
     saved_data = pyqtSignal(list)
     row_removed = pyqtSignal(object)
     col_removed = pyqtSignal(str)
-
     mark_tree = pyqtSignal(object, bool)
 
     def __init__(self, fields):

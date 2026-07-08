@@ -6,55 +6,62 @@ from forest_view.forms import SurfaceColumnForm
 from forest_view.widgets import ProprietyWidget
 
 CONVERSION_FACTORS = {'m': 1, 'cm': 100, 'mm': 1000,
-                      'm²': 1, 'cm²': 1e4, 'mm²': 1e6}
+                      'm²': 1, 'cm²': 1e4, 'mm²': 1e6,
+                      'm³': 1, 'cm³': 1e6, 'mm³': 1e9}
 
 class TreeMarkerWidget(QWidget):
     """ Widget gérant la sélection de tiges pour le martelage"""
     tree_selection_changed = pyqtSignal()
 
-    def __init__(self, propriety_widget:ProprietyWidget, parent=None):
+    @classmethod
+    def from_form(cls, propriety_widget:ProprietyWidget, parent = None):
+        form = SurfaceColumnForm(propriety_widget._fields)
+        if form.exec() != QDialog.DialogCode.Accepted:
+                return None
+        
+        col_dict = form.get_choices()
+
+        return cls(propriety_widget, col_dict, parent)
+
+    def __init__(self, propriety_widget:ProprietyWidget, col_dict : dict = None, parent=None):
         super().__init__(parent)
 
         self.propriety_widget = propriety_widget
         self.table = propriety_widget.table
         self._counter = 0
+        self.col_dict = col_dict
+
+        for key, info in self.col_dict.items():
+            if 'units' in info:
+                self.col_dict[key]['conversion'] = CONVERSION_FACTORS[info['units']]
         
-        form = SurfaceColumnForm(self.propriety_widget._fields, self)
-        if form.exec() != QDialog.DialogCode.Accepted:
-                self.deleteLater()
-                return
-        
-        type, info = form.get_choices()
-        if type == "Surface terrière":
-            self.surface_col = info[0]
-            self.conversion = CONVERSION_FACTORS[info[1]]
-        elif type == "DHP":
-            self.propriety_widget.add_col(info[2])
-            self.surface_col = info[2]
-            dbh_col = self.propriety_widget.get_col_from_header(info[0])
-            surf_col = self.propriety_widget.get_col_from_header(self.surface_col)
+        if self.col_dict['surface']['col'] not in self.propriety_widget._fields:
+            new_col_name = self.col_dict['surface']['col']
+            self.propriety_widget.add_col(new_col_name)
+            dbh_col = self.propriety_widget.get_col_from_header(self.col_dict['dbh']['col'])
+            surf_col = self.propriety_widget.get_col_from_header(new_col_name)
             # Calcul des surfaces par arbre
             for row in range(self.table.rowCount()):
                 dbh = self.table.item(row, dbh_col).text()
-                surf = self.calculate_surface(dbh, info[1])
+                surf = self.calculate_surface(dbh, self.col_dict['dbh']['units'])
                 if surf:
                     surf_item = self.table.item(row, surf_col)
                     surf_item.setText(str(surf))
-            self.conversion = 1
+            self.col_dict['surface']['conversion'] = 1
             
         self.total_tree_n = self.table.rowCount()
         self.selected_tree_n = int(0)
         self.selected_tree_ratio = float(0)
 
         # Calcul de la surface totale
-        col = self.propriety_widget.get_col_from_header(self.surface_col)
+        col = self.propriety_widget.get_col_from_header(self.col_dict['surface']['col'])
         texts = [
             self.table.item(row, col).text()
             for row in range(self.table.rowCount())
             if self.table.item(row, col) is not None
         ]
 
-        self.total_surface = sum([float(text) / self.conversion for text in texts if self.is_float(text)])
+        self.total_surface = sum([float(text) / self.col_dict['dbh']['conversion'] for text in texts if self.is_float(text)])
         self.selected_surface = float(0)
         self.selected_surface_ratio = float(0)
 
@@ -74,12 +81,12 @@ class TreeMarkerWidget(QWidget):
     def on_selection_change(self, payload, marked):
         """Calcul et met à jour les valeurs des paramètres suite à une modification de sélection"""
         _, data = payload
-        surface = float(data[self.surface_col]) if self.is_float(data[self.surface_col]) else 0
+        surface = float(data[self.col_dict['surface']['col']]) if self.is_float(data[self.col_dict['surface']['col']]) else 0
         
         self._counter += 1
         if self._counter % 50 == 0: # NOTE : pas certain que ce soit nécessaire
             select_col = self.propriety_widget.get_col_from_header('Martelage')
-            surf_col = self.propriety_widget.get_col_from_header(self.surface_col)
+            surf_col = self.propriety_widget.get_col_from_header(self.col_dict['surface']['col'])
             selection = [
                 self.table.item(row, select_col).checkState() == Qt.CheckState.Checked
                 for row in range(self.table.rowCount())
@@ -90,7 +97,7 @@ class TreeMarkerWidget(QWidget):
                 if self.table.item(row, surf_col) is not None
             ]
             self.selected_tree_n = sum(selection)
-            self.selected_surface = sum([float(text) / self.conversion for text, selected in zip(texts, selection) if self.is_float(text) and selected])
+            self.selected_surface = sum([float(text) / self.col_dict['dbh']['conversion'] for text, selected in zip(texts, selection) if self.is_float(text) and selected])
         elif marked:
             self.selected_tree_n += 1
             self.selected_surface += surface
@@ -126,6 +133,7 @@ class TreeMarkerWidget(QWidget):
     @staticmethod
     def calculate_surface(dbh:float | int | str, unit:str) -> float | None:
         """Renvoie la surface terrière d'un arbre en mètres carrés"""
+        assert unit in CONVERSION_FACTORS, 'Unité non reconnue'
         if TreeMarkerWidget.is_float(dbh):
             surf = (float(dbh) / CONVERSION_FACTORS[unit])**2 * 3.14 / 4
             return surf
@@ -138,3 +146,7 @@ class TreeMarkerWidget(QWidget):
         painter.setBrush(QColor(180, 180, 180, 150))
         painter.drawRoundedRect(self.rect(), 8, 8)
         return super().paintEvent(event)
+    
+class ExtendedMarkingStatsWidget(QWidget):
+    def __init__(self, parent = None):
+        super().__init__(parent)

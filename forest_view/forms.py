@@ -8,6 +8,7 @@ from PyQt6.QtWidgets import (
     QCheckBox,
     QComboBox,
     QDialog,
+    QGridLayout,
     QFileDialog,
     QFormLayout,
     QHBoxLayout,
@@ -254,7 +255,7 @@ class SurfaceColumnForm(QDialog):
     def __init__(self, choices:list[str], parent=None):
         super().__init__(parent)
 
-        self.setWindowTitle('Colonne de surface terrière')
+        self.setWindowTitle("Colonnes d'information")
         self.setWindowFlags(
             self.windowFlags()
             | Qt.WindowType.WindowStaysOnTopHint
@@ -262,47 +263,70 @@ class SurfaceColumnForm(QDialog):
             | Qt.WindowType.WindowCloseButtonHint
         )
 
-        layout = QVBoxLayout(self)
+        layout = QGridLayout(self)
         layout.setVerticalSizeConstraint(QLayout.SizeConstraint.SetMinimumSize)
-        self.col_type = QComboBox()
-        self.col_type.addItems(['Surface terrière', 'DHP'])
-        self.col_type.currentTextChanged.connect(self._on_type_change)
-        layout.addWidget(self.col_type)
-        self.col_name = QComboBox(self)
-        self.col_name.addItems(choices)
-        layout.addWidget(self.col_name)
-        self.units_ST = QComboBox()
-        self.units_ST.addItems(['m²', 'cm²', 'mm²'])
-        layout.addWidget(self.units_ST)
-        self.units_DBH = QComboBox()
-        self.units_DBH.addItems(['m', 'cm', 'mm'])
-        self.units_DBH.setVisible(False)
-        layout.addWidget(self.units_DBH)
-        self.new_col_label = QLabel('Nouvelle colonne')
-        self.new_col_label.setVisible(False)
-        layout.addWidget(self.new_col_label)
+
+        for i, label in enumerate(['DHP', 'Surface terrière', None, 'Volume']):
+            layout.addWidget(QLabel(label, self), i, 0)
+
+        self.dbh_col = QComboBox()
+        self.dbh_col.addItems(choices)
+        layout.addWidget(self.dbh_col, 0, 1)
+        self.dbh_units = QComboBox()
+        self.dbh_units.addItems(['m', 'cm', 'mm'])
+        self.dbh_units.setCurrentIndex(1)
+        layout.addWidget(self.dbh_units, 0, 2)
+
+        self.surface_col = QComboBox()
+        self.surface_col.addItems(['Nouvelle colonne'] + choices)
+        self.surface_col.currentTextChanged.connect(self._on_type_change)
+        layout.addWidget(self.surface_col, 1, 1)
+        self.surface_units = QComboBox()
+        self.surface_units.addItems(['m²', 'cm²', 'mm²'])
+        layout.addWidget(self.surface_units, 1, 2)
+
+        self.volume_col = QComboBox()
+        self.volume_col.addItems(['Aucune'] + choices)
+        layout.addWidget(self.volume_col, 3, 1)
+        self.volume_units = QComboBox()
+        self.volume_units.addItems(['m³', 'cm³'])
+        layout.addWidget(self.volume_units, 3, 2)
+        
+        new_col_layout = QHBoxLayout()
+        self.new_col_label = QLabel('Nom :')
+        layout.addWidget(self.new_col_label, 2, 1)
+        new_col_layout.addWidget(self.new_col_label)
         self.new_col_name = QLineEdit('ST')
-        self.new_col_name.setVisible(False)
-        layout.addWidget(self.new_col_name)
+        new_col_layout.addWidget(self.new_col_name)
+        layout.addLayout(new_col_layout, 2, 1, 1, 2)
+
         submit_button = QPushButton("Soumettre")
         submit_button.clicked.connect(self.submit_choice)
-        layout.addWidget(submit_button)
+        layout.addWidget(submit_button, 4, 0, 1, 3)
 
     def _on_type_change(self, new_text):
-        self.units_ST.setVisible(new_text == 'Surface terrière')
-        self.units_DBH.setVisible(new_text == 'DHP')
-        self.new_col_label.setVisible(new_text == 'DHP')
-        self.new_col_name.setVisible(new_text == 'DHP')
+        self.layout().itemAtPosition(2,0).widget().setVisible(new_text == 'Nouvelle colonne')
+        self.new_col_label.setVisible(new_text == 'Nouvelle colonne')
+        self.new_col_name.setVisible(new_text == 'Nouvelle colonne')
         self.adjustSize()
 
     def submit_choice(self):
         self.accept()
 
     def get_choices(self):
-        if self.col_type.currentText() == 'Surface terrière':
-            return self.col_type.currentText(), [self.col_name.currentText(), self.units_ST.currentText()]
+        output = {
+            'dbh': {
+                'col': self.dbh_col.currentText(),
+                'units': self.dbh_units.currentText()
+            },
+            'surface': {
+                'col': self.new_col_name.text() if self.surface_col.currentText() == 'Nouvelle colonne' else self.surface_col.currentText(),
+                'units': self.surface_units.currentText()
+            },
+            'volume': {
+                'col': None if self.volume_col.currentText() == 'Aucune' else self.volume_col.currentText(),
+                'units': self.volume_units.currentText()
+            },
+        }
 
-        if self.col_type.currentText() == 'DHP':
-            return self.col_type.currentText(), [self.col_name.currentText(), self.units_DBH.currentText(), self.new_col_name.text()]
-
-
+        return output
