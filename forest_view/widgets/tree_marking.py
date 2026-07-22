@@ -1,6 +1,8 @@
+from itertools import product
+
 from PyQt6.QtCore import pyqtSignal, Qt
 from PyQt6.QtGui import QColor, QPainter
-from PyQt6.QtWidgets import QWidget, QGridLayout, QLabel, QDialog
+from PyQt6.QtWidgets import QWidget, QGridLayout, QLabel, QDialog, QPushButton, QVBoxLayout
 
 from forest_view.forms import SurfaceColumnForm
 from forest_view.widgets import ProprietyWidget
@@ -25,9 +27,9 @@ class TreeMarkerWidget(QWidget):
 
     Paramètres
     col_dict : dictionnaire de la structure suivante
-        {'dbh' : {'col': , 'units':},
-        'surface' : {'col': , 'units':},
-        'volume' : {'col': , 'units':},}
+        {"dbh" : {"col": , "units":},
+        "surface" : {"col": , "units":},
+        "volume" : {"col": , "units":},}
     """
 
     tree_selection_changed = pyqtSignal()
@@ -40,11 +42,11 @@ class TreeMarkerWidget(QWidget):
         self._counter = 0
         self.col_dict = col_dict
 
-        self.data = dict.fromkeys(col_dict.keys())
+        self.data = dict.fromkeys(col_dict.keys()) # TODO : revoir la construction pour ne prendre que les variables à suivre
         for key in self.data.keys():
             self.data[key] = {"selected": 0, "merchantable": 0, "total": 0, "ratio": 0}
         self.data.update({"n": {"merchantable": 0, "total": 0},
-                          "aire_ha": None})  # TODO : trouver comment calculer la surface de la placette
+                          "area_ha": 1})  # TODO : trouver comment calculer la surface de la placette
 
         # Ajout des facteurs conversions
         for key, info in self.col_dict.items():
@@ -90,16 +92,21 @@ class TreeMarkerWidget(QWidget):
         layout.addWidget(QLabel("M"), 0, 3, Qt.AlignmentFlag.AlignCenter) # Marchand total
         layout.addWidget(QLabel("%"), 0, 4, Qt.AlignmentFlag.AlignCenter) # Ratio sélectionné / marchand
 
+        extension_btn = QPushButton("⇱", self) # ⇲
+        extension_btn.setFixedSize(22,22)
+        extension_btn.clicked.connect(self.open_extended_widget)
+        layout.addWidget(extension_btn, 0, 0)
+
         for i, key in enumerate(["dbh", "surface", "volume"], start=1):
             if key == "dbh":
-                layout.addWidget(QLabel(f"{self.data[key]['merch_mean'] * 100:.2f}"), i, 3)
+                layout.addWidget(QLabel(f"{self.data[key]["merch_mean"] * 100:.2f}"), i, 3)
                 continue
-            layout.addWidget(QLabel(f"{self.data[key]['selected']:.2f}"), i, 1, Qt.AlignmentFlag.AlignRight)
-            layout.addWidget(QLabel(f"{self.data[key]['merchantable'] - self.data[key]['selected']:.2f}"), i, 2, Qt.AlignmentFlag.AlignRight)
-            layout.addWidget(QLabel(f"{self.data[key]['merchantable']:.2f}"), i, 3, Qt.AlignmentFlag.AlignRight)
-            layout.addWidget(QLabel(f"{self.data[key]['ratio'] * 100:.2f}"), i, 4, Qt.AlignmentFlag.AlignRight)
+            layout.addWidget(QLabel(f"{self.data[key]["selected"]:.2f}"), i, 1, Qt.AlignmentFlag.AlignRight)
+            layout.addWidget(QLabel(f"{self.data[key]["merchantable"] - self.data[key]["selected"]:.2f}"), i, 2, Qt.AlignmentFlag.AlignRight)
+            layout.addWidget(QLabel(f"{self.data[key]["merchantable"]:.2f}"), i, 3, Qt.AlignmentFlag.AlignRight)
+            layout.addWidget(QLabel(f"{self.data[key]["ratio"] * 100:.2f}"), i, 4, Qt.AlignmentFlag.AlignRight)
 
-            if not self.col_dict[key]['col']:
+            if not self.col_dict[key]["col"]:
                 for j in range(5):
                     layout.itemAtPosition(i, j).widget().setVisible(False)
 
@@ -201,7 +208,7 @@ class TreeMarkerWidget(QWidget):
 
     def _update_ratios(self):
         """Recalcule des ratios pour surface et volume"""
-        for key in ('surface', 'volume'):
+        for key in ("surface", "volume"):
             self.data[key]["ratio"] = (
                 self.data[key]["selected"] / (self.data[key]["merchantable"] + 1e-10)
             )
@@ -247,12 +254,12 @@ class TreeMarkerWidget(QWidget):
         layout = self.layout()
         for i, key in enumerate(["dbh", "surface", "volume"], start=1):
             if key == "dbh":
-                layout.itemAtPosition(i, 3).widget().setText(f"{self.data[key]['merch_mean'] * 100:.2f}")
+                layout.itemAtPosition(i, 3).widget().setText(f"{self.data[key]["merch_mean"] * 100:.2f}")
                 continue
-            layout.itemAtPosition(i, 1).widget().setText(f"{self.data[key]['selected']:.2f}")
-            layout.itemAtPosition(i, 2).widget().setText(f"{self.data[key]['merchantable'] - self.data[key]['selected']:.2f}")
-            layout.itemAtPosition(i, 3).widget().setText(f"{self.data[key]['merchantable']:.2f}")
-            layout.itemAtPosition(i, 4).widget().setText(f"{self.data[key]['ratio'] * 100:.2f}")
+            layout.itemAtPosition(i, 1).widget().setText(f"{self.data[key]["selected"]:.2f}")
+            layout.itemAtPosition(i, 2).widget().setText(f"{self.data[key]["merchantable"] - self.data[key]["selected"]:.2f}")
+            layout.itemAtPosition(i, 3).widget().setText(f"{self.data[key]["merchantable"]:.2f}")
+            layout.itemAtPosition(i, 4).widget().setText(f"{self.data[key]["ratio"] * 100:.2f}")
         self.adjustSize()
 
     def _get_table_value(
@@ -293,8 +300,194 @@ class TreeMarkerWidget(QWidget):
         painter.setBrush(QColor(100, 100, 100, 150))
         painter.drawRoundedRect(self.rect(), 8, 8)
         return super().paintEvent(event)
+    
+    def open_extended_widget(self): # TODO : améliorer la gestion de la fenêtre
+        extended_widget = ExtendedMarkingStatsWidget(self.propriety_widget, self.col_dict, area=self.data["area_ha"], parent=self)
+        extended_widget.show()
 
 
 class ExtendedMarkingStatsWidget(QWidget):
-    def __init__(self, parent=None):
+    """Widget étendu avec statistiques ventilées par classe"""
+    def __init__(self, propriety_widget: ProprietyWidget, col_dict: dict, area=1, parent=None):
         super().__init__(parent)
+
+        self.setWindowFlag(Qt.Window, True)
+
+        self.col_dict = col_dict
+        self.propriety_widget = propriety_widget
+        self.table = propriety_widget.table
+        self.area_ha = area
+
+        self.var = ["n", "surface", "volume"]
+        if self.col_dict["classes"]["col"]:
+            col = self.propriety_widget.get_col_from_header(self.col_dict["classes"]["col"])
+            self.cls = list(set([
+                self.table.item(row, col).text()
+                for row in range(self.table.rowCount())
+                if self.table.item(row, col) is not None
+            ]))
+            self.cls = self.sort_classes(self.cls) + ["total"]
+        else:
+            self.cls = [""]
+        self.select_type = ["selected", "remaining"]
+        self.merch_type = ["merchantable", "total"]
+        self.normalization = ["none", "per_ha"]
+        self.keys = product(self.var, self.cls, self.select_type, self.merch_type, self.normalization)
+
+        self.data = {}
+        for key in self.keys:
+            self.data[key] = 0
+
+        self.update_data()
+
+        # Layout
+        self.setStyleSheet("""
+            QLabel {
+                color : black;
+                font-size : 12px;
+            }
+        """)
+
+        var_names = {
+            ("n", "merchantable") : "NM",
+            ("n", "total") : "NT",
+            ("surface", "merchantable") : "GM",
+            ("surface", "total") : "GT",
+            ("volume", "merchantable") : "VM",
+            ("volume", "total") : "VT",
+        }
+        global_layout = QVBoxLayout(self)
+
+        global_layout.addWidget(QLabel("Sélectionnée", self), alignment=Qt.AlignmentFlag.AlignCenter)
+        self.selected_layout = QGridLayout()
+        for row, var_type in enumerate(product(self.var, self.merch_type), start=1):
+            for col, cls in enumerate(self.cls, start=1):
+                if row == 1:
+                    self.selected_layout.addWidget(QLabel(cls if cls else "Autre", self), 0, col, alignment=Qt.AlignmentFlag.AlignCenter)
+                if col == 1:
+                    self.selected_layout.addWidget(QLabel(var_names[var_type], self), row, 0)
+
+                key = (var_type[0], cls, "selected", var_type[1], "per_ha")
+                self.selected_layout.addWidget(QLabel(f"{self.data[key]:.2f}", self), row, col)
+        global_layout.addLayout(self.selected_layout)
+
+        global_layout.addWidget(QLabel("Restant", self), alignment=Qt.AlignmentFlag.AlignCenter)
+        self.remaining_layout = QGridLayout()
+        for row, var_type in enumerate(product(self.var, self.merch_type), start=1):
+            for col, cls in enumerate(self.cls, start=1):
+                if row == 1:
+                    self.remaining_layout.addWidget(QLabel(cls if cls else "Autre", self), 0, col, alignment=Qt.AlignmentFlag.AlignCenter)           
+                if col == 1:
+                    self.remaining_layout.addWidget(QLabel(var_names[var_type], self), row, 0)
+
+                key = (var_type[0], cls, "remaining", var_type[1], "per_ha")
+                self.remaining_layout.addWidget(QLabel(f"{self.data[key]:.2f}", self), row, col)
+        global_layout.addLayout(self.remaining_layout)
+
+    def update_data(self):
+        self._update_sums()
+        self._update_normalization()
+
+    def _update_sums(self):
+        for key in self.keys:
+            if "none" not in key:
+                continue
+            self.data[key] = 0
+
+        select_col = self.propriety_widget.get_col_from_header("Martelage")
+        dbh_col = self.propriety_widget.get_col_from_header(self.col_dict["dbh"]["col"])
+        class_col = self.propriety_widget.get_col_from_header(self.col_dict["classes"]["col"])
+        var_cols = [self.propriety_widget.get_col_from_header(self.col_dict.get(var, {}).get("col")) for var in self.var]
+        
+        for row in range(self.table.rowCount()):
+            merchantable = (
+                self._get_table_value(row, dbh_col)
+                / self.col_dict["dbh"]["conversion"]
+                >= MERCHANTABLE_DBH_LIM
+                )
+            selected = self.table.item(row, select_col).checkState() == Qt.CheckState.Checked
+            cls = self.table.item(row, class_col).text() if class_col else ""
+
+            for var, col in zip(self.var, var_cols):
+                if var == "n":
+                    value = 1
+                elif self.col_dict[var].get("conversion"):
+                    value = self._get_table_value(row, col) / self.col_dict[var].get("conversion")
+                else:
+                    value = self._get_table_value(row, col)
+
+                if cls not in self.cls:
+                    if selected:
+                        self.data[(var, "total", "selected", "total", "none")] += value
+                    else:
+                        self.data[(var, "total", "remaining", "total", "none")] += value
+
+                    if merchantable:
+                        if selected:
+                            self.data[(var, "total", "selected", "merchantable", "none")] += value
+                        else:
+                            self.data[(var, "total", "remaining", "merchantable", "none")] += value
+                    continue
+
+                if selected:
+                    self.data[(var, cls, "selected", "total", "none")] += value
+                    self.data[(var, "total", "selected", "total", "none")] += value
+                else:
+                    self.data[(var, cls, "remaining", "total", "none")] += value
+                    self.data[(var, "total", "remaining", "total", "none")] += value
+
+                if merchantable:
+                    if selected:
+                        self.data[(var, cls, "selected", "merchantable", "none")] += value
+                        self.data[(var, "total", "selected", "merchantable", "none")] += value
+                    else:
+                        self.data[(var, cls, "remaining", "merchantable", "none")] += value
+                        self.data[(var, "total", "remaining", "merchantable", "none")] += value
+
+    def _update_normalization(self):
+        for key in self.keys:
+            if "per_ha" not in key:
+                continue
+            self.data[key] = 0
+
+        for key in product(self.var, self.cls, self.select_type, self.merch_type):
+            self.data[key + tuple(["per_ha"])] = self.data[key + tuple(["none"])] / self.area_ha
+
+    def _get_table_value(
+        self, row, col
+    ):  # NOTE : pourrait être déplacé dans ProprietyWidget
+        col = (
+            col
+            if isinstance(col, int)
+            else self.propriety_widget.get_col_from_header(col)
+        )
+        if not col:
+            return 0
+        text = self.table.item(row, col).text()
+        value = float(text) if self.is_float(text) else 0
+        return value
+    
+    @staticmethod
+    def sort_classes(classes: set[str]):
+        """Ordonne les classes en entrée si elles sont d'un type connue, sinon fait un sort sandard"""
+        classes = set(classes)
+        
+        if all([cls in classes for cls in ["M", "S", "C", "R"]]):
+            main_classes = ["M", "S", "C", "R"]
+            other = list(classes.difference(set(main_classes)))
+        elif all([cls in classes for cls in ["A", "B", "C", "D"]]):
+            main_classes = ["A", "B", "C", "D"]
+            other = list(classes.difference(set(main_classes)))
+        else:
+            main_classes = sorted(classes)
+            other = []
+        main_classes.extend(other)
+        return main_classes
+
+    @staticmethod
+    def is_float(value):
+        try:
+            float(value)
+            return True
+        except (ValueError, TypeError):
+            return False
