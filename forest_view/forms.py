@@ -266,7 +266,7 @@ class SurfaceColumnForm(QDialog):
         layout = QGridLayout(self)
         layout.setVerticalSizeConstraint(QLayout.SizeConstraint.SetMinimumSize)
 
-        for i, label in enumerate(["DHP", "Surface terrière", None, "Volume", "Classes"]):
+        for i, label in enumerate(["DHP", "Surface terrière", None, "Volume"]):
             layout.addWidget(QLabel(label, self), i, 0)
 
         self.dbh_col = QComboBox()
@@ -300,13 +300,9 @@ class SurfaceColumnForm(QDialog):
         self.volume_units.addItems(["m³", "cm³"])
         layout.addWidget(self.volume_units, 3, 2)
         
-        self.class_col = QComboBox() # NOTE : Peut-être déplacer avant l'ouverture du widget étendu
-        self.class_col.addItems(choices)
-        layout.addWidget(self.class_col, 4, 1, 1, 2)
-        
         submit_button = QPushButton("Soumettre")
         submit_button.clicked.connect(self.submit_choice)
-        layout.addWidget(submit_button, 5, 0, 1, 3)
+        layout.addWidget(submit_button, 4, 0, 1, 3)
 
     def _on_type_change(self, new_text):
         self.layout().itemAtPosition(2,0).widget().setVisible(new_text == "Nouvelle colonne")
@@ -330,9 +326,6 @@ class SurfaceColumnForm(QDialog):
             "volume": {
                 "col": None if self.volume_col.currentText() == "Aucune" else self.volume_col.currentText(),
                 "units": self.volume_units.currentText()
-            },
-            "classes": {
-                "col": self.class_col.currentText()
             }
         }
 

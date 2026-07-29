@@ -2,7 +2,16 @@ from itertools import product
 
 from PyQt6.QtCore import pyqtSignal, Qt
 from PyQt6.QtGui import QColor, QPainter
-from PyQt6.QtWidgets import QWidget, QGridLayout, QLabel, QDialog, QPushButton, QVBoxLayout
+from PyQt6.QtWidgets import (
+    QApplication,
+    QDialog,
+    QGridLayout,
+    QInputDialog,
+    QLabel,
+    QPushButton,
+    QVBoxLayout,
+    QWidget,  
+)
 
 from forest_view.forms import SurfaceColumnForm
 from forest_view.widgets import ProprietyWidget
@@ -163,6 +172,13 @@ class TreeMarkerWidget(QWidget):
         self._update_ratios()
         self._update_display()
 
+        if hasattr(self, "extended_widget"):
+            try:
+                self.extended_widget.update_data()
+                self.extended_widget.update_display()
+            except Exception:
+                pass
+
     def update_data(self): # TODO : Devrait être appelée lors de la modification des valeurs dans la table
         """Mise à jour des données internes"""
         self._update_sums()
@@ -262,9 +278,7 @@ class TreeMarkerWidget(QWidget):
             layout.itemAtPosition(i, 4).widget().setText(f"{self.data[key]["ratio"] * 100:.2f}")
         self.adjustSize()
 
-    def _get_table_value(
-        self, row, col
-    ):  # NOTE : pourrait être déplacé dans ProprietyWidget
+    def _get_table_value(self, row, col):  # NOTE : pourrait être déplacé dans ProprietyWidget
         col = (
             col
             if isinstance(col, int)
@@ -302,8 +316,8 @@ class TreeMarkerWidget(QWidget):
         return super().paintEvent(event)
     
     def open_extended_widget(self): # TODO : améliorer la gestion de la fenêtre
-        extended_widget = ExtendedMarkingStatsWidget(self.propriety_widget, self.col_dict, area=self.data["area_ha"], parent=self)
-        extended_widget.show()
+        self.extended_widget = ExtendedMarkingStatsWidget(self.propriety_widget, self.col_dict, area=self.data["area_ha"], parent=self)
+        self.extended_widget.show()
 
 
 class ExtendedMarkingStatsWidget(QWidget):
@@ -312,77 +326,43 @@ class ExtendedMarkingStatsWidget(QWidget):
         super().__init__(parent)
 
         self.setWindowFlag(Qt.Window, True)
+        self.setMinimumWidth(200)
 
         self.col_dict = col_dict
+        if not self.col_dict.get("classes", {}).get("col"):
+            self.col_dict.update({"classes": {"col": None}})
         self.propriety_widget = propriety_widget
         self.table = propriety_widget.table
         self.area_ha = area
 
         self.var = ["n", "surface", "volume"]
-        if self.col_dict["classes"]["col"]:
-            col = self.propriety_widget.get_col_from_header(self.col_dict["classes"]["col"])
-            self.cls = list(set([
-                self.table.item(row, col).text()
-                for row in range(self.table.rowCount())
-                if self.table.item(row, col) is not None
-            ]))
-            self.cls = self.sort_classes(self.cls) + ["total"]
-        else:
-            self.cls = [""]
+        self.cls = self._get_classes(self.col_dict["classes"]["col"])
         self.select_type = ["selected", "remaining"]
         self.merch_type = ["merchantable", "total"]
         self.normalization = ["none", "per_ha"]
-        self.keys = product(self.var, self.cls, self.select_type, self.merch_type, self.normalization)
+        self.keys = list(product(self.var, self.cls, self.select_type, self.merch_type, self.normalization))
 
         self.data = {}
         for key in self.keys:
             self.data[key] = 0
 
         self.update_data()
+        self._build_layout()
 
-        # Layout
-        self.setStyleSheet("""
-            QLabel {
-                color : black;
-                font-size : 12px;
-            }
-        """)
-
-        var_names = {
-            ("n", "merchantable") : "NM",
-            ("n", "total") : "NT",
-            ("surface", "merchantable") : "GM",
-            ("surface", "total") : "GT",
-            ("volume", "merchantable") : "VM",
-            ("volume", "total") : "VT",
-        }
-        global_layout = QVBoxLayout(self)
-
-        global_layout.addWidget(QLabel("Sélectionnée", self), alignment=Qt.AlignmentFlag.AlignCenter)
-        self.selected_layout = QGridLayout()
-        for row, var_type in enumerate(product(self.var, self.merch_type), start=1):
-            for col, cls in enumerate(self.cls, start=1):
-                if row == 1:
-                    self.selected_layout.addWidget(QLabel(cls if cls else "Autre", self), 0, col, alignment=Qt.AlignmentFlag.AlignCenter)
-                if col == 1:
-                    self.selected_layout.addWidget(QLabel(var_names[var_type], self), row, 0)
-
-                key = (var_type[0], cls, "selected", var_type[1], "per_ha")
-                self.selected_layout.addWidget(QLabel(f"{self.data[key]:.2f}", self), row, col)
-        global_layout.addLayout(self.selected_layout)
-
-        global_layout.addWidget(QLabel("Restant", self), alignment=Qt.AlignmentFlag.AlignCenter)
-        self.remaining_layout = QGridLayout()
-        for row, var_type in enumerate(product(self.var, self.merch_type), start=1):
-            for col, cls in enumerate(self.cls, start=1):
-                if row == 1:
-                    self.remaining_layout.addWidget(QLabel(cls if cls else "Autre", self), 0, col, alignment=Qt.AlignmentFlag.AlignCenter)           
-                if col == 1:
-                    self.remaining_layout.addWidget(QLabel(var_names[var_type], self), row, 0)
-
-                key = (var_type[0], cls, "remaining", var_type[1], "per_ha")
-                self.remaining_layout.addWidget(QLabel(f"{self.data[key]:.2f}", self), row, col)
-        global_layout.addLayout(self.remaining_layout)
+    def _get_classes(self, col_name):
+        if col_name:
+            col = self.propriety_widget.get_col_from_header(col_name)
+            if col is None:
+                return ["total"]
+            cls = list(set([
+                self.table.item(row, col).text()
+                for row in range(self.table.rowCount())
+                if self.table.item(row, col) is not None
+            ]))
+            cls = self.sort_classes(cls) + ["total"]
+        else:
+            cls = ["total"]
+        return cls
 
     def update_data(self):
         self._update_sums()
@@ -406,7 +386,7 @@ class ExtendedMarkingStatsWidget(QWidget):
                 >= MERCHANTABLE_DBH_LIM
                 )
             selected = self.table.item(row, select_col).checkState() == Qt.CheckState.Checked
-            cls = self.table.item(row, class_col).text() if class_col else ""
+            cls = self.table.item(row, class_col).text() if class_col is not None else ""
 
             for var, col in zip(self.var, var_cols):
                 if var == "n":
@@ -453,9 +433,30 @@ class ExtendedMarkingStatsWidget(QWidget):
         for key in product(self.var, self.cls, self.select_type, self.merch_type):
             self.data[key + tuple(["per_ha"])] = self.data[key + tuple(["none"])] / self.area_ha
 
-    def _get_table_value(
-        self, row, col
-    ):  # NOTE : pourrait être déplacé dans ProprietyWidget
+    def _update_break_down(self):
+        class_col_name, accepted = QInputDialog.getItem(self, "Classes", "Colonne de classes", self.propriety_widget._fields + ["Aucune"])
+        if not accepted:
+            return
+        class_col_name = None if class_col_name == "Aucune" else class_col_name
+        self.col_dict["classes"]["col"] = class_col_name
+        self.cls = self._get_classes(class_col_name)
+
+        self.keys = list(product(self.var, self.cls, self.select_type, self.merch_type, self.normalization))
+        self.data = {}
+        for key in self.keys:
+            self.data[key] = 0
+        self.update_data()
+
+        self._clear_grid_layout(self.selected_layout)
+        self._clear_grid_layout(self.remaining_layout)
+
+        self._fill_grid_layout(self.selected_layout, 'selected')
+        self._fill_grid_layout(self.remaining_layout, "remaining")
+
+        QApplication.processEvents() # Permet la délétion des anciens widgets
+        self.adjustSize()
+
+    def _get_table_value(self, row, col):  # NOTE : pourrait être déplacé dans ProprietyWidget
         col = (
             col
             if isinstance(col, int)
@@ -479,8 +480,13 @@ class ExtendedMarkingStatsWidget(QWidget):
             main_classes = ["A", "B", "C", "D"]
             other = list(classes.difference(set(main_classes)))
         else:
+            if "" in classes:
+                other = [""]
+                classes.remove("")
+            else:
+                other = []
             main_classes = sorted(classes)
-            other = []
+            
         main_classes.extend(other)
         return main_classes
 
@@ -491,3 +497,72 @@ class ExtendedMarkingStatsWidget(QWidget):
             return True
         except (ValueError, TypeError):
             return False
+        
+    def _build_layout(self):
+        self.setStyleSheet("""
+            QLabel {
+                color : black;
+                font-size : 12px;
+            }
+        """)
+        
+        global_layout = QVBoxLayout(self)
+
+        global_layout.addWidget(QLabel("Sélectionnée", self), alignment=Qt.AlignmentFlag.AlignCenter)
+        self.selected_layout = QGridLayout()
+        self._fill_grid_layout(self.selected_layout, "selected")
+        global_layout.addLayout(self.selected_layout)
+
+        global_layout.addWidget(QLabel("Restant", self), alignment=Qt.AlignmentFlag.AlignCenter)
+        self.remaining_layout = QGridLayout()
+        self._fill_grid_layout(self.remaining_layout, "remaining")
+        global_layout.addLayout(self.remaining_layout)
+
+        ventilate_btn = QPushButton("Ventiler", self)
+        ventilate_btn.clicked.connect(self._update_break_down)
+        global_layout.addWidget(ventilate_btn)
+
+    def _clear_grid_layout(self, layout):
+        for row in range(layout.rowCount()):
+            for col in range(layout.columnCount()):
+                if layout.itemAtPosition(row, col):
+                    layout.itemAtPosition(row, col).widget().deleteLater()
+
+    def _fill_grid_layout(self, layout, selection_type):
+        var_names = {
+            ("n", "merchantable") : "NM",
+            ("n", "total") : "NT",
+            ("surface", "merchantable") : "GM",
+            ("surface", "total") : "GT",
+            ("volume", "merchantable") : "VM",
+            ("volume", "total") : "VT",
+        }
+
+        for row, var_type in enumerate(product(self.var, self.merch_type), start=1):
+            for col, cls in enumerate(self.cls, start=1):
+                if row == 1:
+                    layout.addWidget(QLabel(cls if cls else "Autre", self), 0, col, alignment=Qt.AlignmentFlag.AlignCenter)
+                if col == 1:
+                    layout.addWidget(QLabel(var_names[var_type], self), row, 0)
+
+                key = (var_type[0], cls, selection_type, var_type[1], "per_ha")
+                fmt = ".0f" if "n" in key else ".2f"
+                layout.addWidget(QLabel(f"{self.data[key]:{fmt}}", self), row, col, alignment=Qt.AlignmentFlag.AlignCenter)
+
+
+    def update_display(self):
+        for row, var_type in enumerate(product(self.var, self.merch_type), start=1):
+            for col, cls in enumerate(self.cls, start=1):
+                key = (var_type[0], cls, "selected", var_type[1], "per_ha")
+                fmt = ".0f" if "n" in key else ".2f"
+                self.selected_layout.itemAtPosition(row, col).widget().setText(f"{self.data[key]:{fmt}}")
+
+        for row, var_type in enumerate(product(self.var, self.merch_type), start=1):
+            for col, cls in enumerate(self.cls, start=1):
+                key = (var_type[0], cls, "remaining", var_type[1], "per_ha")
+                fmt = ".0f" if "n" in key else ".2f"
+                self.remaining_layout.itemAtPosition(row, col).widget().setText(f"{self.data[key]:{fmt}}")
+
+    def closeEvent(self, a0):
+        self.deleteLater()
+        return super().closeEvent(a0)
