@@ -50,6 +50,7 @@ class TreeMarkerWidget(QWidget):
         self.table = propriety_widget.table
         self._counter = 0
         self.col_dict = col_dict
+        self.extended_widget = None
 
         self.data = dict.fromkeys(col_dict.keys()) # TODO : revoir la construction pour ne prendre que les variables à suivre
         for key in self.data.keys():
@@ -76,15 +77,14 @@ class TreeMarkerWidget(QWidget):
                 surf = self.calculate_surface(dbh, self.col_dict["dbh"]["units"])
                 if surf:
                     surf_item = self.table.item(i, surf_col)
-                    surf_item.setText(str(surf))
+                    surf_item.setText(f"{surf:.4f}")
             self.col_dict["surface"]["conversion"] = 1
 
-        # Calcul de self.data
         self.update_data()
-
         self.propriety_widget.add_selection_col("Martelage")
+        self._build_layout()
 
-        # Mise en forme
+    def _build_layout(self):
         layout = QGridLayout(self)
         self.setStyleSheet("""
             QLabel {
@@ -101,10 +101,15 @@ class TreeMarkerWidget(QWidget):
         layout.addWidget(QLabel("M"), 0, 3, Qt.AlignmentFlag.AlignCenter) # Marchand total
         layout.addWidget(QLabel("%"), 0, 4, Qt.AlignmentFlag.AlignCenter) # Ratio sélectionné / marchand
 
-        extension_btn = QPushButton("⇱", self) # ⇲
-        extension_btn.setFixedSize(22,22)
-        extension_btn.clicked.connect(self.open_extended_widget)
-        layout.addWidget(extension_btn, 0, 0)
+        self.extension_btn = QPushButton("⇱", self)
+        self.extension_btn.setStyleSheet("""
+            QPushButton {
+                padding: 0px;
+            }
+        """)
+        self.extension_btn.setFixedSize(21,21)
+        self.extension_btn.clicked.connect(self.toggle_extended_widget)
+        layout.addWidget(self.extension_btn, 0, 0)
 
         for i, key in enumerate(["dbh", "surface", "volume"], start=1):
             if key == "dbh":
@@ -172,12 +177,9 @@ class TreeMarkerWidget(QWidget):
         self._update_ratios()
         self._update_display()
 
-        if hasattr(self, "extended_widget"):
-            try:
-                self.extended_widget.update_data()
-                self.extended_widget.update_display()
-            except Exception:
-                pass
+        if self.extended_widget:
+            self.extended_widget.update_data()
+            self.extended_widget.update_display()
 
     def update_data(self): # TODO : Devrait être appelée lors de la modification des valeurs dans la table
         """Mise à jour des données internes"""
@@ -196,18 +198,18 @@ class TreeMarkerWidget(QWidget):
         for row in range(self.table.rowCount()):
 
             dbh = (
-                self._get_table_value(row, self.col_dict["dbh"]["col"])
+                self.propriety_widget.get_float(row, self.col_dict["dbh"]["col"], 0)
                 / self.col_dict["dbh"]["conversion"]
             )
             merchantable = (dbh) >= MERCHANTABLE_DBH_LIM
 
             surface = (
-                self._get_table_value(row, self.col_dict["surface"]["col"])
+                self.propriety_widget.get_float(row, self.col_dict["surface"]["col"], 0)
                 / self.col_dict["surface"]["conversion"]
             )
 
             volume = (
-                self._get_table_value(row, self.col_dict["volume"]["col"])
+                self.propriety_widget.get_float(row, self.col_dict["volume"]["col"], 0)
                 / self.col_dict["volume"]["conversion"]
             )
 
@@ -278,18 +280,6 @@ class TreeMarkerWidget(QWidget):
             layout.itemAtPosition(i, 4).widget().setText(f"{self.data[key]["ratio"] * 100:.2f}")
         self.adjustSize()
 
-    def _get_table_value(self, row, col):  # NOTE : pourrait être déplacé dans ProprietyWidget
-        col = (
-            col
-            if isinstance(col, int)
-            else self.propriety_widget.get_col_from_header(col)
-        )
-        if not col:
-            return 0
-        text = self.table.item(row, col).text()
-        value = float(text) if self.is_float(text) else 0
-        return value
-
     @staticmethod
     def is_float(value):
         try:
@@ -315,9 +305,24 @@ class TreeMarkerWidget(QWidget):
         painter.drawRoundedRect(self.rect(), 8, 8)
         return super().paintEvent(event)
     
-    def open_extended_widget(self): # TODO : améliorer la gestion de la fenêtre
-        self.extended_widget = ExtendedMarkingStatsWidget(self.propriety_widget, self.col_dict, area=self.data["area_ha"], parent=self)
-        self.extended_widget.show()
+    def toggle_extended_widget(self):
+        if not self.extended_widget:
+            self.extended_widget = ExtendedMarkingStatsWidget(self.propriety_widget, self.col_dict, area=self.data["area_ha"], parent=self)
+        
+        if self.extended_widget.isVisible():
+            self.extended_widget.hide()
+            self.extension_btn.setText("⇱")
+        else:
+            self.extended_widget.show()
+            self.extension_btn.setText("⇲")
+
+    def remove_extended_widget(self):
+        if not self.extended_widget:
+            return
+
+        self.extended_widget.close()
+        self.extended_widget = None
+        self.extension_btn.setText("⇱")
 
 
 class ExtendedMarkingStatsWidget(QWidget):
@@ -381,7 +386,7 @@ class ExtendedMarkingStatsWidget(QWidget):
         
         for row in range(self.table.rowCount()):
             merchantable = (
-                self._get_table_value(row, dbh_col)
+                self.propriety_widget.get_float(row, dbh_col, 0)
                 / self.col_dict["dbh"]["conversion"]
                 >= MERCHANTABLE_DBH_LIM
                 )
@@ -392,9 +397,9 @@ class ExtendedMarkingStatsWidget(QWidget):
                 if var == "n":
                     value = 1
                 elif self.col_dict[var].get("conversion"):
-                    value = self._get_table_value(row, col) / self.col_dict[var].get("conversion")
+                    value = self.propriety_widget.get_float(row, col, 0) / self.col_dict[var].get("conversion")
                 else:
-                    value = self._get_table_value(row, col)
+                    value = self.propriety_widget.get_float(row, col, 0)
 
                 if cls not in self.cls:
                     if selected:
@@ -455,18 +460,6 @@ class ExtendedMarkingStatsWidget(QWidget):
 
         QApplication.processEvents() # Permet la délétion des anciens widgets
         self.adjustSize()
-
-    def _get_table_value(self, row, col):  # NOTE : pourrait être déplacé dans ProprietyWidget
-        col = (
-            col
-            if isinstance(col, int)
-            else self.propriety_widget.get_col_from_header(col)
-        )
-        if not col:
-            return 0
-        text = self.table.item(row, col).text()
-        value = float(text) if self.is_float(text) else 0
-        return value
     
     @staticmethod
     def sort_classes(classes: set[str]):
@@ -564,5 +557,7 @@ class ExtendedMarkingStatsWidget(QWidget):
                 self.remaining_layout.itemAtPosition(row, col).widget().setText(f"{self.data[key]:{fmt}}")
 
     def closeEvent(self, a0):
+        if hasattr(self.parent(), "remove_extended_widget"):
+            self.parent().remove_extended_widget()
         self.deleteLater()
         return super().closeEvent(a0)

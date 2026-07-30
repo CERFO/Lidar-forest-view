@@ -272,6 +272,20 @@ class ProprietyWidget(QWidget):
                 return i
         return None
 
+    def get_float(self, row, col, default=None):
+        col = (
+            col
+            if isinstance(col, int)
+            else self.get_col_from_header(col)
+        )
+        if col is None:
+            return default
+        text = self.table.item(row, col).text()
+        try:
+            return float(text)
+        except (ValueError, TypeError):
+            return default
+
     def remove_col(self):
         if not self._editing and self.table.columnCount() == 0:
             return
