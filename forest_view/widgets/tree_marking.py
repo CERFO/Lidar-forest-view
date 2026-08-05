@@ -113,7 +113,7 @@ class TreeMarkerWidget(QWidget):
         """)
         self.extension_btn.setFixedSize(21,21)
         self.extension_btn.clicked.connect(self.toggle_extended_widget)
-        self.extended_widget.setToolTip("Ouvrir la sélection ventillée")
+        self.extension_btn.setToolTip("Ouvrir la sélection ventillée")
         option_layout.addWidget(self.extension_btn)
 
         close_btn = QPushButton("✖", self)

@@ -116,19 +116,20 @@ Le projet est organisé en package Python **`forest_view/`**.
 | **`crs_utils.py`** | Reprojection des coordonnées : `data_to_wgs84(x, y, crs_epsg)` vers WGS84 pour la scène et OSM ; nécessite pyproj si CRS ≠ 4326. |
 | **`io.py`** | Lecture/écriture : `readCSV`, `CSV_to_dict`, `writeCSV`, `readJSON`, `writeJSON`, `export_photo_info_to_csv`. |
 | **`photo_pipeline.py`** | Traitement des photos : `get_valid_pairs`, `stitch_photos` (Hugin), `get_photo_locations`, `quaternion_to_euler`. |
-| **`forms.py`** | Formulaire de saisie de chemins (`DataForm`) et mémorisation dans `appsettings.json`. Formulaires d'édition de données (`NewTreeForm`, `CheckBoxChoiceForm`)|
+| **`forms.py`** | Formulaire de saisie de chemins (`DataForm`) et mémorisation dans `appsettings.json`. Formulaires d'édition de données (`NewTreeForm`, `CheckBoxChoiceForm`). Formulaire de sélection des champs d'intérêt pour le martelage (`SurfaceColumnForm`) |
 | **`logger.py`** | Logging avec rotation quotidienne et archivage. |
 
 ### Sous-package `forest_view/widgets/`
 
 | Fichier | Rôle |
 |---------|------|
-| **`__init__.py`** | Réexporte `GLWidget`, `CustomMapWidget`, `Pointer`, `PhotoPoint`, `TreePoint`, `ProprietyWidget`, `LoadingOverlay`, `show_overlay`. |
+| **`__init__.py`** | Réexporte `GLWidget`, `CustomMapWidget`, `Pointer`, `PhotoPoint`, `TreePoint`, `ProprietyWidget`, `LoadingOverlay`, `show_overlay`,`TreeMarkerWidget` , `ExtendedMarkingStatsWidget`. |
 | **`gl_panorama.py`** | Widget OpenGL `GLWidget` : panoramas équirectangulaires, rotation, zoom, signaux caméra et pointeur. |
 | **`map.py`** | `CustomMapWidget` : scène en WGS84 (lon, -lat), points photo/arbres, fond OSM, étendue calée sur les données, signaux panorama/caméra/propriétés ; `Pointer` (direction de vue). |
 | **`map_items.py`** | `PhotoPoint` (clic = charger panorama, mise à jour caméra) ; `TreePoint` (clic = propriétés, sélection, alignement avec la table par index de ligne). |
 | **`properties.py`** | `ProprietyWidget` : table d'attributs (ex. arbres), synchronisation avec la carte (sélection ligne ↔ point). |
 | **`loading_overlay.py`** | `LoadingOverlay` et `show_overlay` : superposition de chargement (message + barre) sur toute la fenêtre au démarrage de la navigation. |
+| **`tree_marking.py`** | `TreeMarkingWidget` et `ExtendedMarkingStatsWidget` : tables de compilation statistiques des arbres sélectionnés lors du martelage virtuel |
 
 ### Sous-package `forest_view/windows/`
 
@@ -138,12 +139,6 @@ Le projet est organisé en package Python **`forest_view/`**.
 | **`photo_window.py`** | `PhotoWindow` : GLWidget (panorama), carte, propriétés, case « Vérouiller la vue à l'arbre ». Gère `change_site` et `replot_map` (CRS). |
 | **`lidar_window.py`** | `LidarWindow` : vue 3D PyVista, nuages `.laz`, arbres, synchronisation caméra avec la fenêtre photo, picking arbres. |
 | **`unified_window.py`** | Fenêtre unifiée : panneaux Lidar et Photo côte à côte, carte et propriétés en overlay ; menu **Fichier** (Changer de site, Quitter), menu **Carte** (CRS). |
-
-### Racine du dépôt
-
-| Fichier | Rôle |
-|---------|------|
-| **`Librairie.py`** | Stub de compatibilité pour les scripts utilisant `from Librairie import *` (`project_maker.py`, `scripts/*.py`). |
 
 ---
 
@@ -239,6 +234,25 @@ Les deux scripts se placent automatiquement dans le répertoire du dépôt (là 
 - Cocher **« Vérouiller la vue à l'arbre »** en bas de la table d'attribut : l'arbre sélectionné reste centré dans les vues photo et lidar.
 - Changer de photo ou d'arbre recentre sur le nouvel élément.
 - Décocher pour désactiver le mode.
+
+### Martelage virtuel
+
+- Bouton **Martelage** dans la barre de droite
+- Remplir le formulaire :
+    - Champs unité des valeurs d'entrée pour le DHP, la surface terrière et le volume
+    - La surface de la placette
+- Une nouvelle colonne dans la table d'attributs permet le martelage des arbres
+    - Un arbre martelé apparaitra en rouge dans la carte
+- Les statistiques de base du martelage sont indiquées en bas à droite du paneau d'images
+    - S : Sélectionné
+    - R : Restant
+    - M : Marchand total
+    - % : Ratio S / M
+    - Le DHP indiqué est le DHP moyen des arbres marchands
+- La flèche (⇱) permet d'ouvrir une vue plus complète des sélections de martelage
+    - Permet de ventiler selon des catégories
+    - Permet de voir les données brutes ou normalisées par hectare
+- Le ✖ annule le martelage
 
 ### Changement de site
 
