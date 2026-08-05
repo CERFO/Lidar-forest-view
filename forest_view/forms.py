@@ -8,6 +8,7 @@ from PyQt6.QtWidgets import (
     QCheckBox,
     QComboBox,
     QDialog,
+    QDoubleSpinBox,
     QGridLayout,
     QFileDialog,
     QFormLayout,
@@ -266,7 +267,7 @@ class SurfaceColumnForm(QDialog):
         layout = QGridLayout(self)
         layout.setVerticalSizeConstraint(QLayout.SizeConstraint.SetMinimumSize)
 
-        for i, label in enumerate(["DHP", "Surface terrière", None, "Volume"]):
+        for i, label in enumerate(["DHP", "Surface terrière", None, "Volume", "Aire placette"]):
             layout.addWidget(QLabel(label, self), i, 0)
 
         self.dbh_col = QComboBox()
@@ -299,10 +300,15 @@ class SurfaceColumnForm(QDialog):
         self.volume_units = QComboBox()
         self.volume_units.addItems(["m³", "cm³"])
         layout.addWidget(self.volume_units, 3, 2)
+
+        self.plot_area = QDoubleSpinBox(self)
+        self.plot_area.setValue(1)
+        self.plot_area.setSuffix(" ha")
+        layout.addWidget(self.plot_area, 4, 1, 1, 2)
         
         submit_button = QPushButton("Soumettre")
         submit_button.clicked.connect(self.submit_choice)
-        layout.addWidget(submit_button, 4, 0, 1, 3)
+        layout.addWidget(submit_button, 5, 0, 1, 3)
 
     def _on_type_change(self, new_text):
         self.layout().itemAtPosition(2,0).widget().setVisible(new_text == "Nouvelle colonne")
@@ -329,4 +335,4 @@ class SurfaceColumnForm(QDialog):
             }
         }
 
-        return output
+        return output, self.plot_area.value()

@@ -4,7 +4,9 @@ from PyQt6.QtCore import pyqtSignal, Qt
 from PyQt6.QtGui import QColor, QPainter
 from PyQt6.QtWidgets import (
     QApplication,
+    QComboBox,
     QDialog,
+    QHBoxLayout,
     QGridLayout,
     QInputDialog,
     QLabel,
@@ -43,7 +45,7 @@ class TreeMarkerWidget(QWidget):
 
     tree_selection_changed = pyqtSignal()
 
-    def __init__(self, propriety_widget: ProprietyWidget, col_dict: dict, parent=None):
+    def __init__(self, propriety_widget: ProprietyWidget, col_dict: dict, area, parent=None):
         super().__init__(parent)
 
         self.propriety_widget = propriety_widget
@@ -56,7 +58,7 @@ class TreeMarkerWidget(QWidget):
         for key in self.data.keys():
             self.data[key] = {"selected": 0, "merchantable": 0, "total": 0, "ratio": 0}
         self.data.update({"n": {"merchantable": 0, "total": 0},
-                          "area_ha": 1})  # TODO : trouver comment calculer la surface de la placette
+                          "area_ha": area})  # TODO : trouver comment calculer la surface de la placette, en ce moment : demandée dans le formulaire
 
         # Ajout des facteurs conversions
         for key, info in self.col_dict.items():
@@ -93,8 +95,8 @@ class TreeMarkerWidget(QWidget):
             }
         """)
         layout.addWidget(QLabel("DHP (cm)"), 1, 0) # DHP moyen
-        layout.addWidget(QLabel("ST (m²)"), 2, 0) # Surface terrière
-        layout.addWidget(QLabel("Vol (m³)"), 3, 0) # Volume
+        layout.addWidget(QLabel("ST (m²/ha)"), 2, 0) # Surface terrière par ha
+        layout.addWidget(QLabel("Vol (m³/ha)"), 3, 0) # Volume
 
         layout.addWidget(QLabel("S"), 0, 1, Qt.AlignmentFlag.AlignCenter) # Sélectionné
         layout.addWidget(QLabel("R"), 0, 2, Qt.AlignmentFlag.AlignCenter) # Restant
@@ -115,9 +117,9 @@ class TreeMarkerWidget(QWidget):
             if key == "dbh":
                 layout.addWidget(QLabel(f"{self.data[key]["merch_mean"] * 100:.2f}"), i, 3)
                 continue
-            layout.addWidget(QLabel(f"{self.data[key]["selected"]:.2f}"), i, 1, Qt.AlignmentFlag.AlignRight)
-            layout.addWidget(QLabel(f"{self.data[key]["merchantable"] - self.data[key]["selected"]:.2f}"), i, 2, Qt.AlignmentFlag.AlignRight)
-            layout.addWidget(QLabel(f"{self.data[key]["merchantable"]:.2f}"), i, 3, Qt.AlignmentFlag.AlignRight)
+            layout.addWidget(QLabel(f"{self.data[key]["selected"] / self.data["area_ha"]:.2f}"), i, 1, Qt.AlignmentFlag.AlignRight)
+            layout.addWidget(QLabel(f"{(self.data[key]["merchantable"] - self.data[key]["selected"]) / self.data["area_ha"]:.2f}"), i, 2, Qt.AlignmentFlag.AlignRight)
+            layout.addWidget(QLabel(f"{self.data[key]["merchantable"] / self.data["area_ha"]:.2f}"), i, 3, Qt.AlignmentFlag.AlignRight)
             layout.addWidget(QLabel(f"{self.data[key]["ratio"] * 100:.2f}"), i, 4, Qt.AlignmentFlag.AlignRight)
 
             if not self.col_dict[key]["col"]:
@@ -136,9 +138,9 @@ class TreeMarkerWidget(QWidget):
         if form.exec() != QDialog.DialogCode.Accepted:
             return None
 
-        col_dict = form.get_choices()
+        col_dict, area_ha = form.get_choices()
 
-        return cls(propriety_widget, col_dict, parent)
+        return cls(propriety_widget, col_dict, area_ha, parent)
 
     def on_selection_change(self, payload:tuple, marked:bool) -> None:
         """Calcul et met à jour les valeurs des paramètres suite à une modification de sélection
@@ -274,9 +276,9 @@ class TreeMarkerWidget(QWidget):
             if key == "dbh":
                 layout.itemAtPosition(i, 3).widget().setText(f"{self.data[key]["merch_mean"] * 100:.2f}")
                 continue
-            layout.itemAtPosition(i, 1).widget().setText(f"{self.data[key]["selected"]:.2f}")
-            layout.itemAtPosition(i, 2).widget().setText(f"{self.data[key]["merchantable"] - self.data[key]["selected"]:.2f}")
-            layout.itemAtPosition(i, 3).widget().setText(f"{self.data[key]["merchantable"]:.2f}")
+            layout.itemAtPosition(i, 1).widget().setText(f"{self.data[key]["selected"] / self.data["area_ha"]:.2f}")
+            layout.itemAtPosition(i, 2).widget().setText(f"{(self.data[key]["merchantable"] - self.data[key]["selected"])  / self.data["area_ha"]:.2f}")
+            layout.itemAtPosition(i, 3).widget().setText(f"{self.data[key]["merchantable"] / self.data["area_ha"]:.2f}")
             layout.itemAtPosition(i, 4).widget().setText(f"{self.data[key]["ratio"] * 100:.2f}")
         self.adjustSize()
 
@@ -308,6 +310,7 @@ class TreeMarkerWidget(QWidget):
     def toggle_extended_widget(self):
         if not self.extended_widget:
             self.extended_widget = ExtendedMarkingStatsWidget(self.propriety_widget, self.col_dict, area=self.data["area_ha"], parent=self)
+            self.extended_widget.destroyed.connect(self.remove_extended_widget)
         
         if self.extended_widget.isVisible():
             self.extended_widget.hide()
@@ -320,7 +323,6 @@ class TreeMarkerWidget(QWidget):
         if not self.extended_widget:
             return
 
-        self.extended_widget.close()
         self.extended_widget = None
         self.extension_btn.setText("⇱")
 
@@ -330,7 +332,9 @@ class ExtendedMarkingStatsWidget(QWidget):
     def __init__(self, propriety_widget: ProprietyWidget, col_dict: dict, area=1, parent=None):
         super().__init__(parent)
 
+        self.setWindowTitle("Détails de martelage")
         self.setWindowFlag(Qt.Window, True)
+        self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, True)
         self.setMinimumWidth(200)
 
         self.col_dict = col_dict
@@ -350,6 +354,7 @@ class ExtendedMarkingStatsWidget(QWidget):
         self.data = {}
         for key in self.keys:
             self.data[key] = 0
+        self.display_norm = "per_ha"
 
         self.update_data()
         self._build_layout()
@@ -511,9 +516,17 @@ class ExtendedMarkingStatsWidget(QWidget):
         self._fill_grid_layout(self.remaining_layout, "remaining")
         global_layout.addLayout(self.remaining_layout)
 
+        action_layout = QHBoxLayout()
         ventilate_btn = QPushButton("Ventiler", self)
         ventilate_btn.clicked.connect(self._update_break_down)
-        global_layout.addWidget(ventilate_btn)
+        action_layout.addWidget(ventilate_btn)
+
+        norm_cb = QComboBox(self)
+        norm_cb.addItems(["Par ha", "Brute"])
+        norm_cb.currentTextChanged.connect(self.change_display_norm)
+        action_layout.addWidget(norm_cb)
+
+        global_layout.addLayout(action_layout)
 
     def _clear_grid_layout(self, layout):
         for row in range(layout.rowCount()):
@@ -546,18 +559,20 @@ class ExtendedMarkingStatsWidget(QWidget):
     def update_display(self):
         for row, var_type in enumerate(product(self.var, self.merch_type), start=1):
             for col, cls in enumerate(self.cls, start=1):
-                key = (var_type[0], cls, "selected", var_type[1], "per_ha")
+                key = (var_type[0], cls, "selected", var_type[1], self.display_norm)
                 fmt = ".0f" if "n" in key else ".2f"
                 self.selected_layout.itemAtPosition(row, col).widget().setText(f"{self.data[key]:{fmt}}")
 
         for row, var_type in enumerate(product(self.var, self.merch_type), start=1):
             for col, cls in enumerate(self.cls, start=1):
-                key = (var_type[0], cls, "remaining", var_type[1], "per_ha")
+                key = (var_type[0], cls, "remaining", var_type[1], self.display_norm)
                 fmt = ".0f" if "n" in key else ".2f"
                 self.remaining_layout.itemAtPosition(row, col).widget().setText(f"{self.data[key]:{fmt}}")
 
-    def closeEvent(self, a0):
-        if hasattr(self.parent(), "remove_extended_widget"):
-            self.parent().remove_extended_widget()
-        self.deleteLater()
-        return super().closeEvent(a0)
+    def change_display_norm(self, norm_text):
+        match norm_text:
+            case "Par ha":
+                self.display_norm = "per_ha"
+            case "Brute":
+                self.display_norm = "none"
+        self.update_display()
