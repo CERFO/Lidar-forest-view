@@ -242,6 +242,18 @@ class ProprietyWidget(QWidget):
 
         self.table.itemChanged.connect(self._on_item_change)
 
+    def remove_selection_col(self, col):
+        col = col if isinstance(col, int) else self.get_col_from_header(col)
+        if not col or col not in self._check_cols:
+            return
+        
+        self._check_cols.remove(col)
+        self._check_cols = [col - 1 for col in self._check_cols]
+        self.table.removeColumn(col)
+
+        if not self._check_cols:
+            self.table.itemChanged.disconnect(self._on_item_change)
+
     def add_tree(self):
         """ Appel le formulaire pour les nouveaux arbres """
         if self._editing:

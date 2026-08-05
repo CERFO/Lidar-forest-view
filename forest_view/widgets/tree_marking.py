@@ -47,6 +47,7 @@ class TreeMarkerWidget(QWidget):
 
     def __init__(self, propriety_widget: ProprietyWidget, col_dict: dict, area, parent=None):
         super().__init__(parent)
+        self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, True)
 
         self.propriety_widget = propriety_widget
         self.table = propriety_widget.table
@@ -103,6 +104,7 @@ class TreeMarkerWidget(QWidget):
         layout.addWidget(QLabel("M"), 0, 3, Qt.AlignmentFlag.AlignCenter) # Marchand total
         layout.addWidget(QLabel("%"), 0, 4, Qt.AlignmentFlag.AlignCenter) # Ratio sélectionné / marchand
 
+        option_layout = QHBoxLayout()
         self.extension_btn = QPushButton("⇱", self)
         self.extension_btn.setStyleSheet("""
             QPushButton {
@@ -111,7 +113,21 @@ class TreeMarkerWidget(QWidget):
         """)
         self.extension_btn.setFixedSize(21,21)
         self.extension_btn.clicked.connect(self.toggle_extended_widget)
-        layout.addWidget(self.extension_btn, 0, 0)
+        self.extended_widget.setToolTip("Ouvrir la sélection ventillée")
+        option_layout.addWidget(self.extension_btn)
+
+        close_btn = QPushButton("✖", self)
+        close_btn.setStyleSheet("""
+            QPushButton {
+                padding: 0px;
+                color: red;
+            }
+        """)
+        close_btn.setFixedSize(21,21)
+        close_btn.clicked.connect(self.close)
+        close_btn.setToolTip("Arrêter le martelage")
+        option_layout.addWidget(close_btn)
+        layout.addLayout(option_layout, 0,0)
 
         for i, key in enumerate(["dbh", "surface", "volume"], start=1):
             if key == "dbh":
@@ -320,11 +336,12 @@ class TreeMarkerWidget(QWidget):
             self.extension_btn.setText("⇲")
 
     def remove_extended_widget(self):
-        if not self.extended_widget:
-            return
-
         self.extended_widget = None
         self.extension_btn.setText("⇱")
+
+    def closeEvent(self, event):
+        self.propriety_widget.remove_selection_col("Martelage")
+        return super().closeEvent(event)
 
 
 class ExtendedMarkingStatsWidget(QWidget):

@@ -51,16 +51,20 @@ class PanoramaMapOverlayContainer(QWidget):
             map_panel.raise_()
         self._update_geometries()
 
-    def add_tree_marker_panel(self, tree_marker_widget):
+    def add_tree_marker_panel(self, tree_marker_widget:TreeMarkerWidget):
         if self._tree_marker:
             self._tree_marker.setParent(None)
         self._tree_marker = tree_marker_widget
+        self._tree_marker.destroyed.connect(self.remove_tree_marker)
         if tree_marker_widget:
             tree_marker_widget.setParent(self)
             tree_marker_widget.setMinimumSize(0, 0)
             tree_marker_widget.setMaximumSize(16777215, 16777215)
             tree_marker_widget.raise_()
         self._update_geometries()
+
+    def remove_tree_marker(self):
+        self._tree_marker = None
 
     def _update_geometries(self):
         r = self.rect()
@@ -467,6 +471,7 @@ class UnifiedWindow(QMainWindow):
             self._tree_marking_widget = TreeMarkerWidget.from_form(propriety_widget)
             if self._tree_marking_widget is None:
                 return
+            self._tree_marking_widget.destroyed.connect(self.remove_tree_marking_widget)
             self._panorama_container.add_tree_marker_panel(self._tree_marking_widget)
             propriety_widget.mark_tree.connect(self._tree_marking_widget.on_selection_change)
         visible = self._tree_marking_widget.isVisible()
@@ -475,6 +480,9 @@ class UnifiedWindow(QMainWindow):
             self._tree_marking_widget.setToolTip(
                 "Fermer l'outil de martelage" if not visible else "Ouvrir l'outil de martelage"
             )
+
+    def remove_tree_marking_widget(self):
+        self._tree_marking_widget = None
 
     def _attach_lidar_controls_to_right_container(self, right_container):
         if right_container is None or self._lidar_layers_panel is None or self._lidar_toggle_btn is None:
