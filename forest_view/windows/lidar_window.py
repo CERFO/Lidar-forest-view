@@ -28,6 +28,8 @@ class LidarWindow(QMainWindow):
     lidar_tree_selected = pyqtSignal(object)
     point_selected = pyqtSignal(object)
 
+    cloud_colors = ['red', 'orangered', 'cadmiumlemon', 'limegreen', 'mediumturquoise', 'royalblue', 'mediumorchid', 'deeppink']
+
     def __init__(self):
         super().__init__()
         self.setWindowTitle('UdeS Forest View 3D')
@@ -50,6 +52,7 @@ class LidarWindow(QMainWindow):
         self.translation = None
         self.cloud_group = []
         self.qsm_group = []
+        self.qsm_id = None
         self._tree_positions_centered = None
         self._tree_labels = None
         self.point_size = 1.0
@@ -68,13 +71,12 @@ class LidarWindow(QMainWindow):
 
     def load_point_cloud(self, point_cloud_path, actor_name):
         try:
-            color = ['red', 'orangered', 'cadmiumlemon', 'limegreen', 'mediumturquoise', 'royalblue', 'mediumorchid', 'deeppink']
             las = lp.read(point_cloud_path)
             pcd = np.vstack((las.x, las.y, las.z)).transpose()
             if self.translation is None:
                 self.translation = np.mean(pcd, axis=0)
             centered_pcd = pcd - self.translation
-            mesh_color = self.point_color if self.point_color is not None else random.choice(color)
+            mesh_color = self.point_color if self.point_color is not None else random.choice(self.cloud_colors)
             actor = self.plotter.add_mesh(
                 centered_pcd, name=actor_name, style='points', point_size=self.point_size,
                 label=actor_name, pickable=False, color=mesh_color
@@ -309,6 +311,32 @@ class LidarWindow(QMainWindow):
         for actor in self.cloud_group:
             actor.prop.color = self.point_color
         self.plotter.render()
+
+    def reset_colors(self):
+        for actor in self.cloud_group:
+            actor.prop.color = random.choice(self.cloud_colors)
+
+        for actor in self.qsm_group:
+            actor.prop.color = None
+        self.plotter.render()
+
+    def set_qsm_id(self, id):
+        self.qsm_id = id
+
+    def mark_tree(self, payload, marked):
+        row, tree_info = payload
+        if self.qsm_id not in tree_info:
+            return
+        
+        for actor in self.cloud_group:
+            if actor.name == f"tree_{tree_info[self.qsm_id]}.las":
+                actor.prop.color = "red" if marked else (0.0, 1.0, 0.0)
+                break
+        
+        for actor in self.qsm_group:
+            if actor.name == f"tree_{tree_info[self.qsm_id]}.obj":
+                actor.prop.color = "red" if marked else None
+                break
 
     def get_current_point_color(self):
         if self.point_color is not None:

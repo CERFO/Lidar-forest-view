@@ -448,6 +448,12 @@ class CustomMapWidget(QGraphicsView):
             tree.marked = marked
             tree.update()
 
+    def unmark_all_trees(self):
+        for item in self.scene.items():
+            if isinstance(item, TreePoint):
+                item.marked = False
+                item.update()
+
     def remove_tree(self, payload):
         """ Retire un point d'arbre de l'affichage
         payload = (row_index, tree_data) ou tree_data"""

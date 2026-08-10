@@ -40,7 +40,8 @@ class TreeMarkerWidget(QWidget):
     col_dict : dictionnaire de la structure suivante
         {"dbh" : {"col": , "units":},
         "surface" : {"col": , "units":},
-        "volume" : {"col": , "units":},}
+        "volume" : {"col": , "units":},
+        "qsm_id" : {"col":}}
     """
 
     tree_selection_changed = pyqtSignal()
@@ -297,6 +298,9 @@ class TreeMarkerWidget(QWidget):
             layout.itemAtPosition(i, 3).widget().setText(f"{self.data[key]["merchantable"] / self.data["area_ha"]:.2f}")
             layout.itemAtPosition(i, 4).widget().setText(f"{self.data[key]["ratio"] * 100:.2f}")
         self.adjustSize()
+
+    def get_qsm_id_col(self):
+        return(self.col_dict.get("qsm_id", {}).get("col"))
 
     @staticmethod
     def is_float(value):
@@ -568,7 +572,7 @@ class ExtendedMarkingStatsWidget(QWidget):
                 if col == 1:
                     layout.addWidget(QLabel(var_names[var_type], self), row, 0)
 
-                key = (var_type[0], cls, selection_type, var_type[1], "per_ha")
+                key = (var_type[0], cls, selection_type, var_type[1], self.display_norm)
                 fmt = ".0f" if "n" in key else ".2f"
                 layout.addWidget(QLabel(f"{self.data[key]:{fmt}}", self), row, col, alignment=Qt.AlignmentFlag.AlignCenter)
 

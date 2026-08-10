@@ -124,6 +124,9 @@ class AppManager(QObject):
         self.photo_window.propriety_widget.mark_tree.connect(
             self.photo_window.map_widget.mark_tree
         )
+        self.photo_window.propriety_widget.mark_tree.connect(
+            self.lidar_window.mark_tree
+        )
         self.lidar_window.lidar_tree_selected.connect(
             self.photo_window.map_widget.highlight_tree_by_location
         )
@@ -229,6 +232,7 @@ class AppManager(QObject):
             self._unified_window.on_basemap_changed = self.set_map_basemap
             self._bind_unified_lidar_controls()
             self._bind_unified_image_controls()
+            self._bind_map_controls()
             self._unified_window._cleanup_before_quit = self._release_vtk_before_quit
         lidar_w = self.lidar_window.centralWidget()
         photo_content = self.photo_window.centralWidget()
@@ -268,9 +272,11 @@ class AppManager(QObject):
         self._unified_window.on_lidar_reset_view_requested = self.reset_lidar_view
         self._unified_window.on_lidar_lock_world_up_change = self.set_lidar_lock_world_up
         self._unified_window.on_lidar_point_color_change = self.set_lidar_point_color
+        self._unified_window.on_lidar_colors_reset = self.reset_lidar_color
         self._unified_window.on_vector_visibility_change = self.set_vector_visibility
         self._unified_window.on_view_depth_change = self.set_view_depth
         self._unified_window.on_measure_request = self.enable_measures
+        self._unified_window.on_set_qsm_id = self.set_qsm_id
 
     def _bind_unified_image_controls(self):
         """
@@ -281,6 +287,9 @@ class AppManager(QObject):
         """
         self._unified_window.on_contrast_change = self.set_img_contrast_factor
         self._unified_window.on_brightness_change = self.set_img_brightness_factor
+
+    def _bind_map_controls(self):
+        self._unified_window.unmark_map_trees = self.photo_window.map_widget.unmark_all_trees
 
     def set_map_crs(self, epsg: int):
         """Change le CRS de la carte et redessine avec les mêmes données."""
@@ -323,6 +332,12 @@ class AppManager(QObject):
         self.lidar_window.set_point_color(color_rgb)
         if self._unified_window is not None:
             self._unified_window.set_current_point_color(color_rgb)
+
+    def reset_lidar_color(self):
+        self.lidar_window.reset_colors()
+
+    def set_qsm_id(self, id):
+        self.lidar_window.set_qsm_id(id)
 
     def set_vector_visibility(self, layer, state):
         if layer == 'trees':

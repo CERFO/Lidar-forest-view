@@ -145,6 +145,7 @@ class UnifiedWindow(QMainWindow):
         self.on_change_site_requested = None
         self.on_crs_changed = None
         self.on_basemap_changed = None
+        self.unmark_map_trees = None
         self.on_lidar_vis_change = None
         self.on_lidar_point_size_change = None
         self.on_lidar_adaptive_point_size_change = None
@@ -152,6 +153,8 @@ class UnifiedWindow(QMainWindow):
         self.on_lidar_reset_view_requested = None
         self.on_lidar_lock_world_up_change = None
         self.on_lidar_point_color_change = None
+        self.on_lidar_colors_reset = None
+        self.on_set_qsm_id = None
         self.on_vector_visibility_change = None
         self.on_view_depth_change = None
         self.on_measure_request = None
@@ -471,9 +474,13 @@ class UnifiedWindow(QMainWindow):
             self._tree_marking_widget = TreeMarkerWidget.from_form(propriety_widget)
             if self._tree_marking_widget is None:
                 return
+            self._on_set_qsm_id(self._tree_marking_widget.get_qsm_id_col())
             self._tree_marking_widget.destroyed.connect(self.remove_tree_marking_widget)
             self._panorama_container.add_tree_marker_panel(self._tree_marking_widget)
             propriety_widget.mark_tree.connect(self._tree_marking_widget.on_selection_change)
+            self.set_current_point_color((0, 1, 0))
+            if callable(self.on_lidar_point_color_change):
+                self.on_lidar_point_color_change(self._current_point_color)
         visible = self._tree_marking_widget.isVisible()
         self._tree_marking_widget.setVisible(not visible)
         if self._marking_btn is not None:
@@ -483,6 +490,10 @@ class UnifiedWindow(QMainWindow):
 
     def remove_tree_marking_widget(self):
         self._tree_marking_widget = None
+        if callable(self.on_lidar_colors_reset):
+            self.on_lidar_colors_reset()
+        if callable(self.unmark_map_trees):
+            self.unmark_map_trees()
 
     def _attach_lidar_controls_to_right_container(self, right_container):
         if right_container is None or self._lidar_layers_panel is None or self._lidar_toggle_btn is None:
@@ -639,6 +650,10 @@ class UnifiedWindow(QMainWindow):
     def _on_measure_request(self):
         if callable(self.on_measure_request):
             self.on_measure_request()
+
+    def _on_set_qsm_id(self, id):
+        if callable(self.on_set_qsm_id):
+            self.on_set_qsm_id(id)
 
     def _on_contrast_change(self, factor):
         if callable(self.on_contrast_change):
