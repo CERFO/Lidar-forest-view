@@ -6,6 +6,7 @@ from PyQt6.QtWidgets import (
     QApplication,
     QComboBox,
     QDialog,
+    QFrame,
     QHBoxLayout,
     QGridLayout,
     QInputDialog,
@@ -598,9 +599,9 @@ class ExtendedMarkingStatsWidget(QWidget):
             ("volume", "total") : "VT",
         }
 
-        for row, var_type in enumerate(product(self.var, self.merch_type), start=1):
+        for row, var_type in enumerate(product(self.var, self.merch_type), start=2):
             for col, cls in enumerate(self.cls, start=1):
-                if row == 1:
+                if row == 2:
                     layout.addWidget(QLabel(cls if cls else "Autre", self), 0, col, alignment=Qt.AlignmentFlag.AlignCenter)
                 if col == 1:
                     layout.addWidget(QLabel(var_names[var_type], self), row, 0)
@@ -608,16 +609,25 @@ class ExtendedMarkingStatsWidget(QWidget):
                 key = (var_type[0], cls, selection_type, var_type[1], self.display_norm)
                 fmt = ".0f" if "n" in key else ".2f"
                 layout.addWidget(QLabel(f"{self.data[key]:{fmt}}", self), row, col, alignment=Qt.AlignmentFlag.AlignCenter)
+        self.add_separator(layout, 1)
 
+    def add_separator(self, layout: QGridLayout, row: int, col_start: int=0):
+        item = layout.itemAtPosition(row, 0)
+        if item:
+            widget = item.widget()
+            layout.removeWidget(widget)
+        separator = QFrame()
+        separator.setFrameShape(QFrame.HLine)
+        layout.addWidget(separator, row, col_start, 1, layout.columnCount() - col_start)
 
     def update_display(self):
-        for row, var_type in enumerate(product(self.var, self.merch_type), start=1):
+        for row, var_type in enumerate(product(self.var, self.merch_type), start=2):
             for col, cls in enumerate(self.cls, start=1):
                 key = (var_type[0], cls, "selected", var_type[1], self.display_norm)
                 fmt = ".0f" if "n" in key else ".2f"
                 self.selected_layout.itemAtPosition(row, col).widget().setText(f"{self.data[key]:{fmt}}")
 
-        for row, var_type in enumerate(product(self.var, self.merch_type), start=1):
+        for row, var_type in enumerate(product(self.var, self.merch_type), start=2):
             for col, cls in enumerate(self.cls, start=1):
                 key = (var_type[0], cls, "remaining", var_type[1], self.display_norm)
                 fmt = ".0f" if "n" in key else ".2f"
