@@ -10,6 +10,7 @@ from PyQt6.QtWidgets import (
     QGridLayout,
     QInputDialog,
     QLabel,
+    QMessageBox,
     QPushButton,
     QVBoxLayout,
     QWidget,  
@@ -52,6 +53,7 @@ class TreeMarkerWidget(QWidget):
 
         self.propriety_widget = propriety_widget
         self.table = propriety_widget.table
+        self.changes_made = False
         self._counter = 0
         self.col_dict = col_dict
         self.extended_widget = None
@@ -92,8 +94,14 @@ class TreeMarkerWidget(QWidget):
         layout = QGridLayout(self)
         self.setStyleSheet("""
             QLabel {
-                color : white;
-                font-size : 12px;
+                color: white;
+                font-size: 12px;
+            }
+            QMessageBox {
+                color: black;
+            }
+            QMessageBox QLabel {
+                color: black;
             }
         """)
         layout.addWidget(QLabel("DHP (cm)"), 1, 0) # DHP moyen
@@ -106,6 +114,7 @@ class TreeMarkerWidget(QWidget):
         layout.addWidget(QLabel("%"), 0, 4, Qt.AlignmentFlag.AlignCenter) # Ratio sélectionné / marchand
 
         option_layout = QHBoxLayout()
+        option_layout.setSpacing(1)
         self.extension_btn = QPushButton("⇱", self)
         self.extension_btn.setStyleSheet("""
             QPushButton {
@@ -116,6 +125,17 @@ class TreeMarkerWidget(QWidget):
         self.extension_btn.clicked.connect(self.toggle_extended_widget)
         self.extension_btn.setToolTip("Ouvrir la sélection ventillée")
         option_layout.addWidget(self.extension_btn)
+
+        save_btn = QPushButton("💾", self)
+        save_btn.setStyleSheet("""
+            QPushButton {
+                padding: 0px;
+            }
+        """)
+        save_btn.setFixedSize(21,21)
+        save_btn.clicked.connect(self.save_marking)
+        save_btn.setToolTip("Sauvegarder la sélection")
+        option_layout.addWidget(save_btn)
 
         close_btn = QPushButton("✖", self)
         close_btn.setStyleSheet("""
@@ -166,6 +186,7 @@ class TreeMarkerWidget(QWidget):
         payload tuple(int, dict) : contient le numéro de ligne et le dictionaire des données de l'arbre sélectionné
         marked bool : est-ce que l'arbre a été sélectionné ou désélectionné
         """
+        self.changes_made = True
         self._counter += 1
         if self._counter % 25 == 0:
             self._update_selection()
@@ -302,6 +323,13 @@ class TreeMarkerWidget(QWidget):
     def get_qsm_id_col(self):
         return(self.col_dict.get("qsm_id", {}).get("col"))
 
+    def save_marking(self):
+        if callable(self.propriety_widget.save_marking):
+            self.propriety_widget.save_marking()
+            self.changes_made = False
+        else:
+            QMessageBox.information(self, "Échec de sauvegarde", "La sauvegarde a échouée")
+
     @staticmethod
     def is_float(value):
         try:
@@ -344,6 +372,11 @@ class TreeMarkerWidget(QWidget):
         self.extension_btn.setText("⇱")
 
     def closeEvent(self, event):
+        if self.changes_made:
+            reply = QMessageBox.question(self, "Sauvegarde?",
+                                        "Désirez-vous suvegarder la sélection du martelage dans un fichier")
+            if reply == QMessageBox.Yes:
+                self.save_marking()
         self.propriety_widget.remove_selection_col("Martelage")
         return super().closeEvent(event)
 

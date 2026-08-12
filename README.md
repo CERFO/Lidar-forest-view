@@ -252,6 +252,7 @@ Les deux scripts se placent automatiquement dans le répertoire du dépôt (là 
 - La flèche (⇱) permet d'ouvrir une vue plus complète des sélections de martelage
     - Permet de ventiler selon des catégories
     - Permet de voir les données brutes ou normalisées par hectare
+- La disquette (💾) permet de sauvegarder la sélection dans un fichier csv
 - Le ✖ annule le martelage
 
 ### Changement de site

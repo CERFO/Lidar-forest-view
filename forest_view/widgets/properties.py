@@ -1,6 +1,9 @@
+from pathlib import Path
+
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtWidgets import (
     QDialog,
+    QFileDialog,
     QHeaderView,
     QInputDialog,
     QMessageBox,
@@ -10,6 +13,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from forest_view.io import writeCSV
 from forest_view.utils import _tree_data_match
 from forest_view.forms import NewTreeForm, CheckBoxChoiceForm
 
@@ -276,6 +280,27 @@ class ProprietyWidget(QWidget):
         if self._changes_made:
             self.saved_data.emit(self._all_data)
             self._changes_made = False
+
+    def save_marking(self, outpath = None):
+            if not outpath:
+                outpath, _ = QFileDialog.getSaveFileName(self, f"Fichier de sortie", filter="*.csv")
+                if not outpath:
+                    return
+            
+            columns = range(self.table.columnCount())
+            headers = [self.table.horizontalHeaderItem(col).text() for col in columns]
+            data = []
+            for row in range(self.table.rowCount()):
+                line = [
+                    (
+                        self.table.item(row, col).text() 
+                        if col not in self._check_cols
+                        else self.table.item(row, col).checkState() == Qt.CheckState.Checked
+                    )
+                    for col in columns]
+                data.append(line)
+                
+            writeCSV(outpath, data, headers)
 
     def get_col_from_header(self, header:str):
         for i in range(self.table.columnCount()):
