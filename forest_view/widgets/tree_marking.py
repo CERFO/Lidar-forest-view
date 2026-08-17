@@ -17,7 +17,7 @@ from PyQt6.QtWidgets import (
     QWidget,  
 )
 
-from forest_view.forms import SurfaceColumnForm
+from forest_view.forms import MarkingForm
 from forest_view.widgets import ProprietyWidget
 
 CONVERSION_FACTORS = {
@@ -39,11 +39,15 @@ class TreeMarkerWidget(QWidget):
     """Widget gérant la sélection de tiges pour le martelage
 
     Paramètres
+    propriety_widget: ProprietyWidget duquel ce widget tirera son information
     col_dict : dictionnaire de la structure suivante
         {"dbh" : {"col": , "units":},
         "surface" : {"col": , "units":},
         "volume" : {"col": , "units":},
-        "qsm_id" : {"col":}}
+        "qsm_id" : {"col":}
+    }
+    area: aire en hectare de la placette
+    parent: QWidget parent
     """
 
     tree_selection_changed = pyqtSignal()
@@ -172,7 +176,7 @@ class TreeMarkerWidget(QWidget):
         propriety_widget : ProprietyWidget transmis à l'instance
         parent : QObject parent
         """
-        form = SurfaceColumnForm(propriety_widget._fields)
+        form = MarkingForm(propriety_widget._fields)
         if form.exec() != QDialog.DialogCode.Accepted:
             return None
 
@@ -322,9 +326,11 @@ class TreeMarkerWidget(QWidget):
         self.adjustSize()
 
     def get_qsm_id_col(self):
+        """Accède au champ de colonne pour l'identifiant QSM"""
         return(self.col_dict.get("qsm_id", {}).get("col"))
 
     def save_marking(self):
+        """Sauvegarde la sélection d'arbres en CSV via la méthode du même nom dans ProprietyWidget"""
         if callable(self.propriety_widget.save_marking):
             self.propriety_widget.save_marking()
             self.changes_made = False
@@ -332,7 +338,7 @@ class TreeMarkerWidget(QWidget):
             QMessageBox.information(self, "Échec de sauvegarde", "La sauvegarde a échouée")
 
     @staticmethod
-    def is_float(value):
+    def is_float(value) -> bool:
         try:
             float(value)
             return True
@@ -341,7 +347,11 @@ class TreeMarkerWidget(QWidget):
 
     @staticmethod
     def calculate_surface(dbh: float | int | str, unit: str) -> float | None:
-        """Renvoie la surface terrière d'un arbre en mètres carrés"""
+        """Renvoie la surface terrière d'un arbre en mètres carrés
+        
+        dbh: Diamètre
+        unit: unité du diamètre en entrée
+        """
         assert unit in CONVERSION_FACTORS, "Unité non reconnue"
         if TreeMarkerWidget.is_float(dbh):
             surf = (float(dbh) / CONVERSION_FACTORS[unit]) ** 2 * 3.1416 / 4
@@ -349,18 +359,25 @@ class TreeMarkerWidget(QWidget):
         return
 
     def paintEvent(self, event):
+        """Override pour modifier la couleur d'arrière plan"""
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         painter.setPen(Qt.PenStyle.NoPen)
         painter.setBrush(QColor(100, 100, 100, 150))
         painter.drawRoundedRect(self.rect(), 8, 8)
         return super().paintEvent(event)
-    
+
     def toggle_extended_widget(self):
+        """Gère l'affichage du widget étendu en inversant sa visibilité et en le créant si nécessaire"""
         if not self.extended_widget:
-            self.extended_widget = ExtendedMarkingStatsWidget(self.propriety_widget, self.col_dict, area=self.data["area_ha"], parent=self)
+            self.extended_widget = ExtendedMarkingStatsWidget(
+                self.propriety_widget,
+                self.col_dict,
+                area=self.data["area_ha"],
+                parent=self,
+            )
             self.extended_widget.destroyed.connect(self.remove_extended_widget)
-        
+
         if self.extended_widget.isVisible():
             self.extended_widget.hide()
             self.extension_btn.setText("⇱")
@@ -369,10 +386,12 @@ class TreeMarkerWidget(QWidget):
             self.extension_btn.setText("⇲")
 
     def remove_extended_widget(self):
+        """Enlève la référence au widget étendu pour assurer qu'il se créra de nouveau au prochain appel de toggle_extended_widget"""
         self.extended_widget = None
         self.extension_btn.setText("⇱")
 
     def closeEvent(self, event):
+        """Override pour gérer la sauvegarde de la sélection et le retrait de la colonne de martelage"""
         if self.changes_made:
             reply = QMessageBox.question(self, "Sauvegarde?",
                                         "Désirez-vous suvegarder la sélection du martelage dans un fichier")
@@ -383,7 +402,18 @@ class TreeMarkerWidget(QWidget):
 
 
 class ExtendedMarkingStatsWidget(QWidget):
-    """Widget étendu avec statistiques ventilées par classe"""
+    """Widget étendu avec statistiques ventilées par classe
+    
+    Paramètres
+    propriety_widget: ProprietyWidget duquel ce widget tirera son information
+    col_dict : dictionnaire de la structure suivante
+        {"dbh" : {"col": , "units":, "conversion":},
+        "surface" : {"col": , "units":, "conversion":},
+        "volume" : {"col": , "units":, "conversion":}
+    }
+    area: aire en hectare de la placette
+    parent: QWidget parent
+    """
     def __init__(self, propriety_widget: ProprietyWidget, col_dict: dict, area=1, parent=None):
         super().__init__(parent)
 
@@ -415,6 +445,7 @@ class ExtendedMarkingStatsWidget(QWidget):
         self._build_layout()
 
     def _get_classes(self, col_name):
+        """Isole les valeurs uniques de la colonne col_name et y ajoute «total»"""
         if col_name:
             col = self.propriety_widget.get_col_from_header(col_name)
             if col is None:
@@ -434,6 +465,7 @@ class ExtendedMarkingStatsWidget(QWidget):
         self._update_normalization()
 
     def _update_sums(self):
+        """Recalcul les sommes par variable"""
         for key in self.keys:
             if "none" not in key:
                 continue
@@ -490,6 +522,7 @@ class ExtendedMarkingStatsWidget(QWidget):
                         self.data[(var, "total", "remaining", "merchantable", "none")] += value
 
     def _update_normalization(self):
+        """Recalcule les valeurs normalisées à l'hectare"""
         for key in self.keys:
             if "per_ha" not in key:
                 continue
@@ -498,11 +531,15 @@ class ExtendedMarkingStatsWidget(QWidget):
         for key in product(self.var, self.cls, self.select_type, self.merch_type):
             self.data[key + tuple(["per_ha"])] = self.data[key + tuple(["none"])] / self.area_ha
 
-    def _update_break_down(self):
-        class_col_name, accepted = QInputDialog.getItem(self, "Classes", "Colonne de classes", self.propriety_widget._fields + ["Aucune"])
-        if not accepted:
-            return
-        class_col_name = None if class_col_name == "Aucune" else class_col_name
+    def _update_break_down(self, class_col_name=None):
+        """Met à jour la mise en page du widget pour un changement de champ de ventilation
+        
+        class_col_name: nom de la colonne de classification à utiliser. Si non précisé, un formulaire permettra la sélection"""
+        if not class_col_name:
+            class_col_name, accepted = QInputDialog.getItem(self, "Classes", "Colonne de classes", self.propriety_widget._fields + ["Aucune"])
+            if not accepted:
+                return
+            class_col_name = None if class_col_name == "Aucune" else class_col_name
         self.col_dict["classes"]["col"] = class_col_name
         self.cls = self._get_classes(class_col_name)
 
@@ -583,13 +620,15 @@ class ExtendedMarkingStatsWidget(QWidget):
 
         global_layout.addLayout(action_layout)
 
-    def _clear_grid_layout(self, layout):
+    def _clear_grid_layout(self, layout: QGridLayout):
+        """Vide le GridLayout layout"""
         for row in range(layout.rowCount()):
             for col in range(layout.columnCount()):
                 if layout.itemAtPosition(row, col):
                     layout.itemAtPosition(row, col).widget().deleteLater()
 
-    def _fill_grid_layout(self, layout, selection_type):
+    def _fill_grid_layout(self, layout: QGridLayout, selection_type: str):
+        """Insère les données dans la GridLayout selon la sélection (selected ou remaining)"""
         var_names = {
             ("n", "merchantable") : "NM",
             ("n", "total") : "NT",
@@ -609,9 +648,9 @@ class ExtendedMarkingStatsWidget(QWidget):
                 key = (var_type[0], cls, selection_type, var_type[1], self.display_norm)
                 fmt = ".0f" if "n" in key else ".2f"
                 layout.addWidget(QLabel(f"{self.data[key]:{fmt}}", self), row, col, alignment=Qt.AlignmentFlag.AlignCenter)
-        self.add_separator(layout, 1)
+        self._add_separator(layout, 1)
 
-    def add_separator(self, layout: QGridLayout, row: int, col_start: int=0):
+    def _add_separator(self, layout: QGridLayout, row: int, col_start: int=0):
         item = layout.itemAtPosition(row, 0)
         if item:
             widget = item.widget()
@@ -621,6 +660,9 @@ class ExtendedMarkingStatsWidget(QWidget):
         layout.addWidget(separator, row, col_start, 1, layout.columnCount() - col_start)
 
     def update_display(self):
+        """Met à jour les valeurs dans la mise en page
+        Utilisé lors de changement de sélection
+        """
         for row, var_type in enumerate(product(self.var, self.merch_type), start=2):
             for col, cls in enumerate(self.cls, start=1):
                 key = (var_type[0], cls, "selected", var_type[1], self.display_norm)
@@ -634,6 +676,7 @@ class ExtendedMarkingStatsWidget(QWidget):
                 self.remaining_layout.itemAtPosition(row, col).widget().setText(f"{self.data[key]:{fmt}}")
 
     def change_display_norm(self, norm_text):
+        """Change les valeurs affichées selon la normalisation choisie (Par ha ou Brute)"""
         match norm_text:
             case "Par ha":
                 self.display_norm = "per_ha"

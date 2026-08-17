@@ -74,7 +74,9 @@ class GLWidget(QOpenGLWidget):
         self.photo_dir = photo_dir
 
     def load_image(self, image_path, image_yaw=0, image_pitch=0, image_roll=0):
-        """Charge une nouvelle image panorama."""
+        """Charge une nouvelle image panorama.
+        Les angles doivent être exprimés en degrés
+        """
         if image_path:
             try:
                 self.image = Image.open(os.path.join(self.photo_dir, image_path))
@@ -192,6 +194,7 @@ class GLWidget(QOpenGLWidget):
         self.projection.perspective(self.fov, width / height, 0.1, 1000.0)
 
     def set_tree_focus(self, state):
+        """Active le focus sur l'arbre"""
         if state == Qt.Checked:
             self.tree_focused = True
             self.focus_on_tree()
@@ -207,6 +210,7 @@ class GLWidget(QOpenGLWidget):
         self.update()
 
     def on_tree_selection(self, tree_coords):
+        """Stocke les coordonnées de l'arbre sélectionné et ajuste le focus si nécessaire"""
         prev_tree_coords = self.selected_tree_coords
         self.selected_tree_coords = tree_coords
 
@@ -222,6 +226,7 @@ class GLWidget(QOpenGLWidget):
                 self.focus_on_tree(aimed_z)
 
     def on_photo_selection(self, photo_coords):
+        """Stocke les coordonnées de la photo sélectionné et ajuste le focus si nécessaire"""
         prev_photo_coords = self.selected_photo_coords
         self.selected_photo_coords = photo_coords
 
@@ -237,6 +242,10 @@ class GLWidget(QOpenGLWidget):
                 self.focus_on_tree(aimed_z)
 
     def focus_on_tree(self, aimed_z = None):
+        """Calcul et applique la direction pour conserver l'arbre sélectionné au centre
+        
+        aimed_z float: hauteur à viser
+        """
         if (self.selected_tree_coords is not None 
             and self.selected_photo_coords is not None):
 

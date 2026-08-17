@@ -251,7 +251,7 @@ class CheckBoxChoiceForm(QDialog):
     def get_choices(self):
         return self.choice_dict
 
-class SurfaceColumnForm(QDialog):
+class MarkingForm(QDialog):
     """Permet de sélectionner la colonne et l'unité pour le DHP ou la surface terrière"""
     def __init__(self, choices:list[str], parent=None):
         super().__init__(parent)
@@ -264,6 +264,9 @@ class SurfaceColumnForm(QDialog):
             | Qt.WindowType.WindowCloseButtonHint
         )
 
+        self._build_layout(choices)
+
+    def _build_layout(self, choices):
         layout = QGridLayout(self)
         layout.setVerticalSizeConstraint(QLayout.SizeConstraint.SetMinimumSize)
 
@@ -315,6 +318,7 @@ class SurfaceColumnForm(QDialog):
         layout.addWidget(submit_button, 6, 0, 1, 3)
 
     def _on_type_change(self, new_text):
+        """Assure la cohérance des champs visibles selon les choix"""
         self.layout().itemAtPosition(2,0).widget().setVisible(new_text == "Nouvelle colonne")
         self.new_col_label.setVisible(new_text == "Nouvelle colonne")
         self.new_col_name.setVisible(new_text == "Nouvelle colonne")
@@ -323,7 +327,8 @@ class SurfaceColumnForm(QDialog):
     def submit_choice(self):
         self.accept()
 
-    def get_choices(self):
+    def get_choices(self) -> tuple[dict, float]:
+        """Renvoie les infos de colonnes sous forme de dictionnaire et l'aire de la placette"""
         output = {
             "dbh": {
                 "col": self.dbh_col.currentText(),
